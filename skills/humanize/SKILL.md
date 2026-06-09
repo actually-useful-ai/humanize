@@ -248,6 +248,19 @@ Chaos rules:
 3. Never add humor that punches down or undermines trust in the tool's correctness.
 4. When in doubt, dry beats wacky. The target is a person with taste who is slightly bored, not a mascot.
 
+## Deterministic Scan
+
+The grep-able patterns have a real scanner: `scripts/doc_humanizer.py` (stdlib-only, ships with this skill). Run it first, then spend judgment on what it can't see (rhythm, voice, register).
+
+```bash
+python3 scripts/doc_humanizer.py scan README.md          # report with confidence bars
+python3 scripts/doc_humanizer.py fix README.md           # auto-fix high-confidence patterns
+python3 scripts/doc_humanizer.py diff README.md          # preview without writing
+python3 scripts/doc_humanizer.py batch docs/ --parallel  # whole directories
+```
+
+It detects 18 of the 23 patterns mechanically, including contrast pivots, rhetorical question pivots, and summary closers. Patterns 19 (rule-of-three) and 23 (monotone rhythm) plus the Voice work stay manual: they need an ear, not a regex.
+
 ## Workflow
 
 ### Phase 1: Scan
