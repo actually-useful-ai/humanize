@@ -1,13 +1,19 @@
 {
+  "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
   "name": "actually-useful-ai-humanize",
+  "description": "Strip robot language from documentation and code comments",
   "owner": {
     "name": "Luke Steuber",
     "email": "luke@dr.eamer.dev"
   },
-  "listing": {
-    "title": "Humanize",
-    "tagline": "Strip robot language from documentation and code comments",
-    "category": "writing",
-    "icon": "pencil"
-  }
+  "plugins": [
+    {
+      "name": "humanize",
+      "source": "./",
+      "description": "Strip robot-sounding language from user-facing content. Enforces natural writing and the terminology ban on lazy LLM phrasing.",
+      "version": "1.0.0",
+      "category": "writing",
+      "homepage": "https://github.com/actually-useful-ai/humanize"
+    }
+  ]
 }
