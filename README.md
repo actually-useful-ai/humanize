@@ -1,8 +1,10 @@
 # humanize
 
-Claude Code plugin that strips machine-generated writing patterns from your documentation.
+Claude Code plugin that restores natural flow to documentation.
 
-LLM-generated text has tells: em-dashes for dramatic effect, corporate jargon clusters ("leverage a robust ecosystem"), passive voice, hedge phrases, and stiff constructions like "It is important to note that." This plugin detects 15 categories of these patterns and fixes them.
+LLM-generated text has tells: em-dashes for dramatic effect, contrast pivots ("It's not just X, it's Y"), corporate jargon clusters ("leverage a robust ecosystem"), rhetorical pivots ("The result? ..."), and stiff constructions like "It is important to note that." This plugin detects 23 categories of these patterns and fixes them.
+
+This isn't about disguising authorship. These constructions are tells because they're weak writing: they pad, they hedge, they substitute cadence for content. A human editor would cut them for the same reason this plugin does. The goal is prose that's direct, specific, varied in rhythm, and allowed to have some personality.
 
 ## Install
 
@@ -39,11 +41,19 @@ LLM-generated text has tells: em-dashes for dramatic effect, corporate jargon cl
 | Transition phrases | 0.75 | "Furthermore", "Moreover" |
 | Excessive dates | 0.75 | Timestamps in narrative prose |
 | Over-structuring | 0.70 | Numbered lists for 2-3 items |
+| Contrast pivot | 0.90 | "It's not just X, it's Y" |
+| Trailing participles | 0.85 | ", ensuring reliability" |
+| Rhetorical pivots | 0.85 | "The result? A faster pipeline." |
+| Significance inflation | 0.85 | "At its core", "game-changer" |
+| Audience hedging | 0.85 | "Whether you're a beginner or..." |
+| Summary closers | 0.80 | "In conclusion", "Ultimately" |
+| Rule-of-three cadence | 0.75 | Triplets as every sentence's rhythm |
+| Monotone rhythm | 0.65 | Same sentence shape, wall to wall |
 
 ## How It Works
 
 1. **Checkpoint** -- commits any uncommitted changes before touching files
-2. **Scan** -- applies all 15 detection patterns with confidence scores
+2. **Scan** -- applies all 23 detection patterns with confidence scores
 3. **Transform** -- auto-fixes high-confidence (>0.9), suggests medium (0.7-0.9), flags low (<0.7)
 4. **Report** -- shows a summary with before/after diffs
 

@@ -23,7 +23,7 @@ Skip: CLAUDE.md files, code files, generated files, license files.
 ### Process
 
 1. **Checkpoint** — `git add -A && git commit -m "checkpoint before humanization"` (if there are uncommitted changes)
-2. **Scan** — Apply the 15 detection patterns from the humanize skill
+2. **Scan** — Apply the 23 detection patterns from the humanize skill
 3. **Fix** — Auto-fix high-confidence patterns (>0.9), suggest medium-confidence (0.7-0.9), flag low-confidence (<0.7)
 4. **Report** — Show a summary of changes made and suggestions
 
@@ -34,10 +34,22 @@ Skip: CLAUDE.md files, code files, generated files, license files.
 - "seamless", "robust", "cutting-edge" (describe what it does instead)
 - "we" in solo developer contexts (use "I")
 - Em-dashes used for dramatic pauses
+- Contrast pivots: "It's not just X, it's Y" / "This isn't about X. It's about Y." (state the claim directly)
+- Trailing participle benefits: ", ensuring reliability", ", making it easy to..."
+- Rhetorical question pivots: "The result? ...", "The best part? ..."
+- Significance inflation: "At its core", "game-changer", "...and that changes everything"
+- Audience hedging: "Whether you're a beginner or an expert..."
+- Summary closers: "In conclusion", "Ultimately", "At the end of the day"
+- Rule-of-three cadence: triplets as the default rhythm of every sentence
+- Monotone rhythm: every sentence the same length and shape (flag, don't auto-fix)
 - Passive voice where active is clearer
 - Corporate jargon and buzzword clusters
 - Stiff constructions ("It is important to note that...")
 - Hedge phrases ("might potentially", "could perhaps")
+
+### Framing
+
+This is about flow of language, not concealing LLM use. These constructions are tells because they're weak writing: they pad, hedge, and substitute cadence for content. Fix them because the prose reads better, and where the project's register allows it, let a little personality through (see the Voice section of the skill).
 
 ### Output
 

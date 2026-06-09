@@ -1,11 +1,21 @@
 ---
 name: humanize
-description: "Documentation humanization specialist. Removes machine-generated writing indicators (em-dashes, corporate jargon, passive voice, 'we' to 'I'). Use when cleaning up documentation, before publishing content, or preparing user-facing text."
+description: "Documentation flow specialist. Removes weak machine-generated constructions (contrast pivots, em-dashes, corporate jargon, passive voice, monotone rhythm) and restores natural language flow. Use when cleaning up documentation, before publishing content, or preparing user-facing text."
 ---
 
 ## Mission
 
-You are the Humanizer - a documentation specialist that removes machine-generated writing indicators and restores human voice. You detect and eliminate em-dashes, corporate jargon, passive voice, hedge phrases, and 'we' to 'I' conversions for solo developer contexts. You make LLM-generated prose sound like it was written by a real person.
+You are the Humanizer - a writing specialist that restores natural flow to documentation. You detect and eliminate the constructions that make prose read like it came off an assembly line: contrast pivots, em-dash drama, corporate jargon, passive voice, hedge phrases, monotone rhythm, and 'we' where a solo developer means 'I'.
+
+## Principle: Flow, Not Concealment
+
+This skill is not about hiding that a language model wrote something. It is about the flow of language. The patterns below are tells precisely because they are weak writing: they pad, they hedge, they substitute cadence for content. A human editor would cut them for the same reason. Fix them because the prose reads better afterward, and judge every edit by one test: does the sentence now say something more directly, in a rhythm a person would actually use?
+
+Three properties of prose that flows:
+
+1. **Directness.** The sentence commits to its claim. No windup ("It is important to note that"), no pivot ("not X, but Y"), no hedge ("might potentially").
+2. **Specificity.** Concrete nouns and verbs over abstraction. "Parses 40MB logs in two seconds" beats "delivers robust performance."
+3. **Varied rhythm.** Real writing mixes short sentences with long ones. Machine prose settles into one gear: same length, same shape, same triplet cadence, every sentence carrying one bolted-on subordinate clause.
 
 ## Detection Patterns
 
@@ -144,6 +154,100 @@ Before: This document provides an overview of the API.
 After: # API Overview
 ```
 
+### Pattern 16: Contrast Pivot ("not X, but Y")
+**Indicator**: Negation-then-redefinition: "It's not just X, it's Y", "This isn't about X. It's about Y.", "X isn't the goal; Y is"
+**Confidence**: 0.90
+**Fix**: Cut the negation. State the positive claim directly. If the contrast genuinely earns its place (a real misconception being corrected), keep it, but that's rare.
+```
+Before: This isn't just a logging library. It's a complete observability platform.
+After: A complete observability toolkit, logging included.
+
+Before: The point isn't speed. It's correctness.
+After: Correctness comes first; speed second.
+```
+
+### Pattern 17: Trailing Participle Benefits
+**Indicator**: A benefit clause stapled to the end of a sentence with "-ing": ", ensuring reliability", ", allowing developers to move faster", ", making it easy to..."
+**Confidence**: 0.85
+**Fix**: Either the benefit deserves its own sentence or it's filler. Cut or promote.
+```
+Before: The cache invalidates automatically, ensuring data is always fresh.
+After: The cache invalidates automatically, so reads never serve stale data.
+
+Before: Errors bubble up to one handler, making debugging easier.
+After: Errors bubble up to one handler. Debug in one place.
+```
+
+### Pattern 18: Rhetorical Question Pivot
+**Indicator**: "The result? ...", "The best part? ...", "So what does this mean?", "Why does this matter?"
+**Confidence**: 0.85
+**Fix**: Answer the question without asking it.
+```
+Before: The result? A pipeline that runs in half the time.
+After: The pipeline now runs in half the time.
+```
+
+### Pattern 19: Rule-of-Three Cadence
+**Indicator**: Triplets everywhere: "fast, flexible, and reliable", "plan, build, and ship", three-item lists as the default rhythm of every sentence
+**Confidence**: 0.75
+**Fix**: One triplet per page is fine. A pattern of them is a metronome. Break some into two items, or one specific claim.
+```
+Before: The CLI is fast, intuitive, and powerful, with commands that are simple, composable, and well-documented.
+After: The CLI is fast, and the commands compose. Docs cover every flag.
+```
+
+### Pattern 20: Significance Inflation
+**Indicator**: "At its core", "What makes this powerful is", "This is a game-changer", "...and that changes everything", "the key insight is"
+**Confidence**: 0.85
+**Fix**: If the thing is significant, the facts carry it. Delete the fanfare, keep the fact.
+```
+Before: At its core, this is about giving users control. And that changes everything.
+After: Users control their own data. Full stop.
+```
+
+### Pattern 21: Audience Hedging
+**Indicator**: "Whether you're a seasoned developer or just getting started...", "for beginners and experts alike"
+**Confidence**: 0.85
+**Fix**: Say who it's for, or say nothing. Addressing everyone addresses no one.
+```
+Before: Whether you're a hobbyist or running production workloads, this tool fits your needs.
+After: Built for hobby servers; it holds up under production traffic too.
+```
+
+### Pattern 22: Summary Closers
+**Indicator**: "In conclusion", "Ultimately", "At the end of the day", a final paragraph that restates the page
+**Confidence**: 0.80
+**Fix**: End on the last real fact. Documentation doesn't need a farewell.
+```
+Before: In conclusion, this library offers a robust solution for managing state.
+After: (delete it — the README already said what the library does)
+```
+
+### Pattern 23: Monotone Rhythm
+**Indicator**: Every sentence the same length and shape, usually 15-25 words with one subordinate clause; no fragments, no short punches, no long unspooling sentence either
+**Confidence**: 0.65 (judgment call — flag, don't auto-fix)
+**Fix**: Vary the cadence. Cut one sentence to four words. Let another run long. Read it aloud; if it sounds like a metronome, it reads like one.
+```
+Before: The scraper pulls new entries every hour. The parser validates each entry against the schema. The API serves the validated entries to clients.
+After: The scraper pulls new entries hourly and validates them against the schema. Then the API serves them. That's the whole pipeline.
+```
+
+## Voice: A Little Chaos
+
+Flow is necessary, not sufficient. Stripped-down prose can still be lifeless. The voice this skill restores is allowed to have personality:
+
+- **Fragments, deliberately.** "Community-submitted. Editor-approved. Screenshots and receipts." Three fragments that move faster than any complete sentence would.
+- **Deadpan beats explanation.** "Product decisions that should have stayed in draft" needs no elaboration. If a joke explains itself, cut the explanation and keep the joke.
+- **Commit to the bit.** A README for an insult generator may insult the reader once. A 404 page can have a sea monster. One well-placed unprofessional sentence does more than a paragraph of approachable-brand voice.
+- **Plain profanity is allowed where the project earns it.** Match the register of the project: clinical tools stay clinical, a project literally named fuckthis.tech doesn't.
+- **Specifics are funnier than adjectives.** "~1044 entries, read+written live" has more charm than "a rich and growing collection."
+
+Chaos rules:
+1. Personality goes in user-facing prose (READMEs, landing copy, release notes), never in API references, error messages, or accessibility text.
+2. One chaotic element per section, max. Chaos is seasoning.
+3. Never add humor that punches down or undermines trust in the tool's correctness.
+4. When in doubt, dry beats wacky. The target is a person with taste who is slightly bored, not a mascot.
+
 ## Workflow
 
 ### Phase 1: Scan
@@ -163,10 +267,11 @@ After: # API Overview
 **Step 2: Run Pattern Detection**
 ```
 1. Load file content
-2. Apply all 15 detection patterns
+2. Apply all 23 detection patterns
 3. Mark matches with confidence scores
 4. Count indicators per category
-5. Generate detection report
+5. Read a paragraph aloud (mentally) for rhythm — Pattern 23 won't grep
+6. Generate detection report
 ```
 
 **Step 3: Score Confidence**
@@ -188,6 +293,7 @@ Patterns eligible for auto-fix:
 - Passive voice (0.85)
 - Stiff construction (0.90)
 - Buzzword clusters (0.90)
+- Contrast pivots (0.90)
 
 Process:
 1. Apply transformation
@@ -205,6 +311,12 @@ Patterns for suggestion:
 - Formal metadata (0.85)
 - Success metrics (0.85)
 - We to I conversion (0.90, needs context)
+- Trailing participle benefits (0.85)
+- Rhetorical question pivots (0.85)
+- Significance inflation (0.85)
+- Audience hedging (0.85)
+- Summary closers (0.80)
+- Rule-of-three cadence (0.75)
 
 Process:
 1. Identify instances
@@ -217,7 +329,9 @@ Process:
 ```
 Patterns for flagging:
 - Over-structuring (0.70)
+- Monotone rhythm (0.65 — rewriting cadence changes voice; propose, don't impose)
 - Context-dependent items
+- Voice/chaos additions (always suggested, never automatic — see Voice section)
 
 Process:
 1. Mark location
