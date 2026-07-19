@@ -1,15 +1,43 @@
 # humanize
 
-Claude Code plugin that restores natural flow to documentation.
+Humanize restores natural flow to documentation and other user-facing prose.
 
 LLM-generated text has tells: em-dashes for dramatic effect, contrast pivots ("It's not just X, it's Y"), corporate jargon clusters ("leverage a robust ecosystem"), rhetorical pivots ("The result? ..."), and stiff constructions like "It is important to note that." This plugin detects 23 categories of these patterns and fixes them.
 
-This isn't about disguising authorship. These constructions are tells because they're weak writing: they pad, they hedge, they substitute cadence for content. A human editor would cut them for the same reason this plugin does. The goal is prose that's direct, specific, varied in rhythm, and allowed to have some personality.
+Humanize edits for clarity, not to disguise authorship. These constructions are tells because they're weak writing: they pad, they hedge, they substitute cadence for content. A human editor would cut them for the same reason this plugin does. The goal is prose that's direct, specific, varied in rhythm, and allowed to have some personality.
 
 ## Install
 
+### Codex
+
+Clone the repository, then open the Codex desktop Plugin Directory, choose **Import local plugin**, and select the cloned `humanize` folder.
+
+```bash
+mkdir -p "$HOME/plugins"
+git clone https://github.com/actually-useful-ai/humanize.git "$HOME/plugins/humanize"
 ```
-/install actually-useful-ai/humanize
+
+Codex versions that load personal skills directly can use a guarded symlink instead:
+
+```bash
+mkdir -p "$HOME/.codex/skills"
+target="$HOME/.codex/skills/humanize"
+source_dir="$HOME/plugins/humanize/skills/humanize"
+
+if [ -e "$target" ] || [ -L "$target" ]; then
+  printf 'Humanize already exists at %s\n' "$target"
+else
+  ln -s "$source_dir" "$target"
+fi
+```
+
+### Claude Code
+
+Run these commands inside Claude Code:
+
+```
+/plugin marketplace add actually-useful-ai/humanize
+/plugin install humanize@actually-useful-ai-humanize
 ```
 
 ## Usage
@@ -67,7 +95,7 @@ This isn't about disguising authorship. These constructions are tells because th
 
 ## Terminology Ban
 
-The plugin also enforces a terminology ban: no "AI-powered", "AI-enhanced", "AI-driven", or "AI" used as a standalone noun. Use "LLM", "language model", or name the specific model instead.
+The plugin also flags prohibited umbrella branding. Use "LLM", "language model", or name the specific model instead.
 
 ## License
 
