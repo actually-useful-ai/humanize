@@ -1,0 +1,37 @@
+{
+  "name": "humanize",
+  "version": "1.2.0",
+  "description": "Improve user-facing prose by finding weak, repetitive language and proposing direct, specific revisions.",
+  "author": {
+    "name": "Luke Steuber",
+    "email": "luke@dr.eamer.dev",
+    "url": "https://github.com/lukeslp"
+  },
+  "homepage": "https://github.com/actually-useful-ai/humanize",
+  "repository": "https://github.com/actually-useful-ai/humanize",
+  "license": "MIT",
+  "keywords": [
+    "writing",
+    "documentation",
+    "editing",
+    "plain-language"
+  ],
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "Humanize",
+    "shortDescription": "Make user-facing prose direct and natural.",
+    "longDescription": "Review documentation and other user-facing prose for weak constructions, repetitive cadence, jargon, and unnecessary hedging, then propose clearer revisions without changing meaning.",
+    "developerName": "Luke Steuber",
+    "category": "Productivity",
+    "capabilities": [
+      "Read",
+      "Write"
+    ],
+    "websiteURL": "https://github.com/actually-useful-ai/humanize",
+    "defaultPrompt": [
+      "Humanize this README without changing its meaning.",
+      "Review these docs for stiff or repetitive prose.",
+      "Make this user-facing copy more direct and specific."
+    ]
+  }
+}
