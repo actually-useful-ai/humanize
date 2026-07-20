@@ -203,25 +203,30 @@ class DocumentHumanizer:
         paragraph = []
         para_start = 0
 
+        def record_paragraph() -> None:
+            if not paragraph:
+                return
+            para_text = ' '.join(paragraph)
+            count = para_text.count('—')
+            if count > 2:
+                indicators.append(Indicator(
+                    line=para_start + 1,
+                    text=para_text[:100] + '...' if len(para_text) > 100 else para_text,
+                    confidence=min(0.95, 0.7 + (count - 2) * 0.1),
+                    suggestion=f"Replace {count} em-dashes with parentheses or colons",
+                    pattern_name='em_dashes'
+                ))
+
         for i, line in enumerate(lines):
             if line.strip() == '':
-                if paragraph:
-                    para_text = ' '.join(paragraph)
-                    count = para_text.count('—')
-                    if count > 2:
-                        indicators.append(Indicator(
-                            line=para_start + 1,
-                            text=para_text[:100] + '...' if len(para_text) > 100 else para_text,
-                            confidence=min(0.95, 0.7 + (count - 2) * 0.1),
-                            suggestion=f"Replace {count} em-dashes with parentheses or colons",
-                            pattern_name='em_dashes'
-                        ))
+                record_paragraph()
                 paragraph = []
             else:
                 if not paragraph:
                     para_start = i
                 paragraph.append(line)
 
+        record_paragraph()
         return indicators
 
     def _detect_jargon(self, lines: List[str]) -> List[Indicator]:
@@ -644,41 +649,42 @@ class DocumentHumanizer:
         lines = content.split('\n')
         transformed_lines = lines.copy()
 
+        em_dash_lines = set()
+        paragraph_lines = []
+        for i, line in enumerate(lines + ['']):
+            if line.strip():
+                paragraph_lines.append(i)
+                continue
+            if sum(lines[index].count('—') for index in paragraph_lines) > 2:
+                em_dash_lines.update(paragraph_lines)
+            paragraph_lines = []
+
         # Apply high-confidence fixes
         for i, line in enumerate(transformed_lines):
             if self._is_code_block(i, lines) or self._is_url_or_citation(line):
                 continue
 
+            transformed = line
+
             # Attribution removal (confidence 0.99)
             if confidence_threshold <= 0.99:
-                if self.attribution_pattern.search(line):
-                    transformed_lines[i] = self.attribution_pattern.sub('', line)
+                transformed = self.attribution_pattern.sub('', transformed)
 
             # Success metrics removal (confidence 0.95)
             if confidence_threshold <= 0.95:
-                if self.success_pattern.search(line):
-                    transformed_lines[i] = re.sub(r'[✅☑✓]\s*', '', line)
+                transformed = self.success_pattern.sub('', transformed)
 
             # Em-dash replacement (confidence 0.85-0.95)
-            if confidence_threshold <= 0.90:
-                dash_count = line.count('—')
-                if dash_count > 2:
-                    # Replace em-dashes with parentheses or colons
-                    transformed_lines[i] = line.replace('—', ':')
+            if confidence_threshold <= 0.90 and i in em_dash_lines:
+                transformed = transformed.replace('—', ':')
 
             # Jargon replacement (confidence 0.85)
             if confidence_threshold <= 0.85:
                 for jargon, replacement in self.jargon_words.items():
                     pattern = re.compile(r'\b' + jargon + r'\b', re.IGNORECASE)
-                    transformed_lines[i] = pattern.sub(replacement, transformed_lines[i])
+                    transformed = pattern.sub(replacement, transformed)
 
-            # We -> I replacement (confidence 0.85 in solo context)
-            if confidence_threshold <= 0.85:
-                if 'team' not in line.lower() and 'collaboration' not in line.lower():
-                    transformed_lines[i] = re.sub(r'\bwe\b', 'I', transformed_lines[i])
-                    transformed_lines[i] = re.sub(r'\bWe\b', 'I', transformed_lines[i])
-                    transformed_lines[i] = re.sub(r'\bour\b', 'my', transformed_lines[i])
-                    transformed_lines[i] = re.sub(r'\bOur\b', 'My', transformed_lines[i])
+            transformed_lines[i] = transformed
 
         return '\n'.join(transformed_lines)
 

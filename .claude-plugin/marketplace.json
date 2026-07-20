@@ -4,7 +4,7 @@
   "description": "Strip robot language from documentation and code comments",
   "owner": {
     "name": "Luke Steuber",
-    "email": "luke@dr.eamer.dev"
+    "email": "luke@lukesteuber.com"
   },
   "plugins": [
     {

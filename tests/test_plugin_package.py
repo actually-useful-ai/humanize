@@ -1,9 +1,26 @@
+import importlib.util
 import json
+import sys
+import tempfile
 import unittest
 from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parents[1]
+SCANNER_PATH = ROOT / "skills" / "humanize" / "scripts" / "doc_humanizer.py"
+
+
+def load_scanner_module():
+    spec = importlib.util.spec_from_file_location("humanize_doc_humanizer", SCANNER_PATH)
+    if spec is None or spec.loader is None:
+        raise RuntimeError(f"Could not load scanner from {SCANNER_PATH}")
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = module
+    spec.loader.exec_module(module)
+    return module
+
+
+SCANNER = load_scanner_module()
 
 
 class HumanizePluginPackageTests(unittest.TestCase):
@@ -43,6 +60,56 @@ class HumanizePluginPackageTests(unittest.TestCase):
             "/plugin install humanize@actually-useful-ai-humanize", readme
         )
         self.assertNotIn("/install actually-useful-ai/humanize", readme)
+
+    def test_skill_resolves_the_scanner_from_its_own_directory(self):
+        skill = (ROOT / "skills" / "humanize" / "SKILL.md").read_text(
+            encoding="utf-8"
+        )
+        self.assertIn("HUMANIZE_SKILL_ROOT", skill)
+        self.assertIn("loaded `SKILL.md`", skill)
+        self.assertNotIn("python3 scripts/doc_humanizer.py", skill)
+
+    def test_public_manifests_use_the_public_author_email(self):
+        paths = (
+            ROOT / ".codex-plugin" / "plugin.json",
+            ROOT / ".claude-plugin" / "plugin.json",
+            ROOT / ".claude-plugin" / "marketplace.json",
+        )
+        for path in paths:
+            content = path.read_text(encoding="utf-8")
+            self.assertNotIn("dr.eamer.dev", content)
+            self.assertIn("luke@lukesteuber.com", content)
+
+    def test_plural_first_person_requires_manual_context_review(self):
+        humanizer = SCANNER.DocumentHumanizer()
+
+        transformed = humanizer.apply_transforms("We are ready. Our work is done.")
+
+        self.assertEqual(transformed, "We are ready. Our work is done.")
+        self.assertNotIn("I are", transformed)
+
+    def test_high_confidence_transforms_compose_on_the_same_line(self):
+        humanizer = SCANNER.DocumentHumanizer()
+
+        transformed = humanizer.apply_transforms(
+            "Made with Claude ✅ fully implemented"
+        )
+
+        self.assertEqual(transformed.strip(), "")
+
+    def test_eof_paragraph_em_dashes_are_detected_and_fixed_consistently(self):
+        humanizer = SCANNER.DocumentHumanizer()
+        content = "First — one\nsecond — two\nthird — three"
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "sample.md"
+            path.write_text(content, encoding="utf-8")
+
+            results = humanizer.scan_file(str(path))
+
+        self.assertIn("em_dashes", results)
+        self.assertEqual(len(results["em_dashes"]), 1)
+        transformed = humanizer.apply_transforms(content)
+        self.assertNotIn("—", transformed)
 
 
 if __name__ == "__main__":
