@@ -40,6 +40,16 @@ Run these commands inside Claude Code:
 /plugin install humanize@actually-useful-ai-humanize
 ```
 
+### Cursor
+
+```sh
+cursor-agent plugin marketplace add https://github.com/actually-useful-ai/humanize
+cursor-agent
+```
+
+Open `/plugin` in the interactive agent and install Humanize at user scope so
+the same installation is available in the IDE and CLI.
+
 ## Usage
 
 ```

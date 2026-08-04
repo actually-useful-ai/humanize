@@ -1,0 +1,19 @@
+{
+  "name": "actually-useful-ai-humanize",
+  "displayName": "Humanize",
+  "owner": {
+    "name": "Luke Steuber"
+  },
+  "metadata": {
+    "description": "A careful editing pass for clear, natural, meaning-preserving prose.",
+    "version": "1.2.1"
+  },
+  "plugins": [
+    {
+      "name": "humanize",
+      "source": ".",
+      "description": "Make user-facing prose sound natural without changing its meaning.",
+      "version": "1.2.1"
+    }
+  ]
+}

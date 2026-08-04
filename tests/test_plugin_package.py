@@ -63,6 +63,11 @@ class HumanizePluginPackageTests(unittest.TestCase):
                 encoding="utf-8"
             )
         )
+        cursor_marketplace = json.loads(
+            (ROOT / ".cursor-plugin" / "marketplace.json").read_text(
+                encoding="utf-8"
+            )
+        )
         listing = marketplace["plugins"][0]
 
         for field in ("name", "version"):
@@ -73,6 +78,10 @@ class HumanizePluginPackageTests(unittest.TestCase):
         self.assertEqual(manifests["Codex"]["skills"], "./skills/")
         self.assertEqual(manifests["Cursor"]["skills"], "./skills/")
         self.assertEqual(manifests["Cursor"]["author"]["name"], "Luke Steuber")
+        self.assertEqual(cursor_marketplace["name"], "actually-useful-ai-humanize")
+        self.assertEqual(cursor_marketplace["metadata"]["version"], "1.2.1")
+        self.assertEqual(cursor_marketplace["plugins"][0]["name"], "humanize")
+        self.assertEqual(cursor_marketplace["plugins"][0]["source"], ".")
 
     def test_readme_documents_current_codex_and_claude_install_paths(self):
         readme = (ROOT / "README.md").read_text(encoding="utf-8")
