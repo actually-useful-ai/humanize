@@ -8,6 +8,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 SCANNER_PATH = ROOT / "skills" / "humanize" / "scripts" / "doc_humanizer.py"
+EXPECTED_VERSION = "1.2.1"
 
 
 def load_scanner_module():
@@ -31,7 +32,7 @@ class HumanizePluginPackageTests(unittest.TestCase):
         manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
 
         self.assertEqual(manifest["name"], "humanize")
-        self.assertEqual(manifest["version"], "1.2.0")
+        self.assertEqual(manifest["version"], EXPECTED_VERSION)
         self.assertEqual(manifest["skills"], "./skills/")
         self.assertEqual(manifest["author"]["name"], "Luke Steuber")
         self.assertNotIn("Claude", manifest["description"])
@@ -46,6 +47,32 @@ class HumanizePluginPackageTests(unittest.TestCase):
         self.assertLessEqual(len(prompts), 3)
         self.assertTrue(all(isinstance(prompt, str) and prompt for prompt in prompts))
         self.assertTrue(all(len(prompt) <= 128 for prompt in prompts))
+
+    def test_runtime_manifests_and_marketplace_share_package_identity(self):
+        paths = {
+            "Codex": ROOT / ".codex-plugin" / "plugin.json",
+            "Cursor": ROOT / ".cursor-plugin" / "plugin.json",
+            "Claude": ROOT / ".claude-plugin" / "plugin.json",
+        }
+        manifests = {
+            runtime: json.loads(path.read_text(encoding="utf-8"))
+            for runtime, path in paths.items()
+        }
+        marketplace = json.loads(
+            (ROOT / ".claude-plugin" / "marketplace.json").read_text(
+                encoding="utf-8"
+            )
+        )
+        listing = marketplace["plugins"][0]
+
+        for field in ("name", "version"):
+            values = {manifest[field] for manifest in manifests.values()}
+            values.add(listing[field])
+            self.assertEqual(values, {listing[field]}, f"mismatched {field}")
+        self.assertEqual(listing["version"], EXPECTED_VERSION)
+        self.assertEqual(manifests["Codex"]["skills"], "./skills/")
+        self.assertEqual(manifests["Cursor"]["skills"], "./skills/")
+        self.assertEqual(manifests["Cursor"]["author"]["name"], "Luke Steuber")
 
     def test_readme_documents_current_codex_and_claude_install_paths(self):
         readme = (ROOT / "README.md").read_text(encoding="utf-8")
@@ -72,6 +99,7 @@ class HumanizePluginPackageTests(unittest.TestCase):
     def test_public_manifests_use_the_public_author_email(self):
         paths = (
             ROOT / ".codex-plugin" / "plugin.json",
+            ROOT / ".cursor-plugin" / "plugin.json",
             ROOT / ".claude-plugin" / "plugin.json",
             ROOT / ".claude-plugin" / "marketplace.json",
         )
