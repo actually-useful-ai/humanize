@@ -1,70 +1,9 @@
 ---
-description: Strip robot language from user-facing content - fix terminology, tone, and phrasing
+description: Strip robot language from user-facing content — runs the humanize skill on the given path (default: docs in cwd)
 ---
 
-# Humanize
+Apply the **humanize** skill (skills/humanize/SKILL.md in this plugin — the single source of the rules) to the target below. Do not improvise a second rule set here.
 
-Scan and fix machine-generated writing patterns in user-facing content.
+Target: `$ARGUMENTS` if given (file or directory); otherwise README.md, CHANGELOG.md, any `.md` under docs/, and package descriptions in package.json / pyproject.toml in the current working directory.
 
-## Execute
-
-Scan the target files for machine-generated writing indicators and fix them.
-
-### Target
-
-If `$ARGUMENTS` specifies a file or directory, use that. Otherwise, scan the current working directory for:
-- README.md
-- CHANGELOG.md
-- Any `.md` files in `docs/`
-- Package descriptions in `package.json`, `pyproject.toml`
-
-Skip: CLAUDE.md files, code files, generated files, license files.
-
-### Process
-
-1. **Checkpoint** — `git add -A && git commit -m "checkpoint before humanization"` (if there are uncommitted changes)
-2. **Scan** — Apply the 23 detection patterns from the humanize skill
-3. **Fix** — Auto-fix high-confidence patterns (>0.9), suggest medium-confidence (0.7-0.9), flag low-confidence (<0.7)
-4. **Report** — Show a summary of changes made and suggestions
-
-### What to Look For
-
-- "AI-powered", "AI-enhanced", "AI-driven" or "AI" as a noun
-- "leverages", "utilizes", "facilitates" (use "uses", "helps", "runs")
-- "seamless", "robust", "cutting-edge" (describe what it does instead)
-- "we" in solo developer contexts (use "I")
-- Em-dashes used for dramatic pauses
-- Contrast pivots: "It's not just X, it's Y" / "This isn't about X. It's about Y." (state the claim directly)
-- Trailing participle benefits: ", ensuring reliability", ", making it easy to..."
-- Rhetorical question pivots: "The result? ...", "The best part? ..."
-- Significance inflation: "At its core", "game-changer", "...and that changes everything"
-- Audience hedging: "Whether you're a beginner or an expert..."
-- Summary closers: "In conclusion", "Ultimately", "At the end of the day"
-- Rule-of-three cadence: triplets as the default rhythm of every sentence
-- Monotone rhythm: every sentence the same length and shape (flag, don't auto-fix)
-- Passive voice where active is clearer
-- Corporate jargon and buzzword clusters
-- Stiff constructions ("It is important to note that...")
-- Hedge phrases ("might potentially", "could perhaps")
-
-### Framing
-
-This is about flow of language, not concealing LLM use. These constructions are tells because they're weak writing: they pad, hedge, and substitute cadence for content. Fix them because the prose reads better, and where the project's register allows it, let a little personality through (see the Voice section of the skill).
-
-### Output
-
-Show a summary:
-```
-Humanize: {file}
-- {count} patterns auto-fixed
-- {count} suggestions for review
-- {count} items flagged
-```
-
-For each change, show before/after.
-
-## Arguments
-
-- File path or directory (optional, defaults to cwd)
-- `--dry-run` — scan and report without making changes
-- `--strict` — also fix medium-confidence patterns automatically
+Follow the skill's principle — flow, not concealment — and its editing test: every change must make the sentence say something more directly, in a rhythm a person would use. Report what changed, file by file, and anything you deliberately left alone.
