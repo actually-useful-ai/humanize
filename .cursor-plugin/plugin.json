@@ -1,8 +1,8 @@
 {
   "name": "humanize",
   "displayName": "Humanize",
-  "version": "1.2.2",
-  "description": "Strip robot-sounding language from user-facing content. Enforces natural writing and the terminology ban on lazy LLM phrasing.",
+  "version": "2.0.0",
+  "description": "Edit prose for clarity, flow, and voice while preserving facts, uncertainty, and attribution.",
   "author": {
     "name": "Luke Steuber",
     "email": "luke@lukesteuber.com"

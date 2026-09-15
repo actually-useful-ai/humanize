@@ -125,7 +125,7 @@ class HumanizePluginPackageTests(unittest.TestCase):
         self.assertEqual(transformed, "We are ready. Our work is done.")
         self.assertNotIn("I are", transformed)
 
-    def test_high_confidence_transforms_compose_on_the_same_line(self):
+    def test_attribution_and_status_are_preserved(self):
         humanizer = SCANNER.DocumentHumanizer()
 
         transformed = humanizer.apply_transforms(
@@ -134,7 +134,7 @@ class HumanizePluginPackageTests(unittest.TestCase):
 
         self.assertEqual(transformed, "Made with Claude ✅ fully implemented")
 
-    def test_eof_paragraph_em_dashes_are_detected_and_fixed_consistently(self):
+    def test_punctuation_is_preserved(self):
         humanizer = SCANNER.DocumentHumanizer()
         content = "First — one\nsecond — two\nthird — three"
         with tempfile.TemporaryDirectory() as directory:
@@ -143,8 +143,6 @@ class HumanizePluginPackageTests(unittest.TestCase):
 
             results = humanizer.scan_file(str(path))
 
-        self.assertIn("em_dashes", results)
-        self.assertEqual(len(results["em_dashes"]), 1)
         transformed = humanizer.apply_transforms(content)
         self.assertEqual(content, transformed)
 

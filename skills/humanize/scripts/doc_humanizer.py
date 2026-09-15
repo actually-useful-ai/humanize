@@ -1,887 +1,409 @@
 #!/usr/bin/env python3
+"""Contextual English prose diagnostics. Author: Luke Steuber.
+
+The scanner never writes target files. All semantic editing belongs to the
+agent workflow. Offsets are zero-based Unicode code points, end-exclusive;
+line and column are one-based. No external runtime dependencies or network.
 """
-DocumentHumanizer - Detects and removes AI writing indicators from documentation.
+from __future__ import annotations
 
-This module provides comprehensive detection and transformation of AI-generated
-text patterns, making documentation sound more natural and human-written.
-
-Author: Luke Steuber
-"""
-
-import re
 import argparse
-import sys
-from pathlib import Path
-from typing import Dict, List, Tuple, Optional
-from dataclasses import dataclass
-from concurrent.futures import ThreadPoolExecutor, as_completed
+from bisect import bisect_right
+from concurrent.futures import ThreadPoolExecutor
+from dataclasses import asdict, dataclass
 import difflib
+import fnmatch
+import json
+from pathlib import Path
+import re
+import sys
+import warnings
+
+CATALOG_PATH = Path(__file__).resolve().parent.parent / 'references' / 'rules.json'
+SUPPORTED = {'.md', '.markdown', '.txt'}
+PROTECTED_NAMES = {'agents.md', 'claude.md', 'skill.md', 'license', 'license.md',
+                   'license.txt', 'copying', 'notice', 'notice.md', 'changelog.md',
+                   'changelog.txt', 'changelog.markdown'}
+PROTECTED_DIRS = {'.git', '.claude', '.codex', '.cursor', '.antigravity', 'node_modules',
+                  'vendor', 'dist', 'build', 'generated', '__pycache__', 'clinical', 'specs',
+                  'specifications', '.venv', 'venv'}
 
 
-@dataclass
-class Indicator:
-    """Represents a detected AI writing indicator."""
+@dataclass(frozen=True)
+class Diagnostic:
+    rule_id: str
     line: int
+    column: int
+    start: int
+    end: int
     text: str
-    confidence: float
+    severity: str
+    message: str
     suggestion: str
-    pattern_name: str
+    autofix: bool = False
+
+
+# Older integrations can still import the name, but its fields changed in 2.0.
+Indicator = Diagnostic
+
+
+def masked_prose(content: str) -> str:
+    """Conservatively mask Markdown syntax without changing offsets/newlines.
+
+    This is a protection scanner, not a CommonMark parser. Ambiguous blocks,
+    quotes, links and embedded HTML are deliberately excluded from diagnostics.
+    HTML documents and source code are not supported file types.
+    """
+    masked = list(content)
+
+    def hide(start: int, end: int) -> None:
+        for pos in range(start, end):
+            if content[pos] not in '\r\n':
+                masked[pos] = '\x00'
+
+    lines = content.splitlines(keepends=True)
+    offset = 0
+    fence = None
+    front = None
+    block = False
+    html = None
+    for index, line in enumerate(lines):
+        stripped = line.strip()
+        if index == 0 and stripped.lstrip('\ufeff') in {'---', '+++'}:
+            front = stripped.lstrip('\ufeff')
+            hide(offset, offset + len(line))
+        elif front:
+            hide(offset, offset + len(line))
+            if stripped == front or (front == '---' and stripped == '...'):
+                front = None
+        elif fence:
+            hide(offset, offset + len(line))
+            close = re.match(r'^\s*([`~]+)\s*$', line)
+            if close and set(close[1]) == {fence[0]} and len(close[1]) >= fence[1]:
+                fence = None
+        elif html:
+            hide(offset, offset + len(line))
+            if html == 'blank' and not stripped:
+                html = None
+            elif html != 'blank' and html in line.lower():
+                html = None
+        elif block and stripped:
+            hide(offset, offset + len(line))
+        else:
+            block = False
+            opening = re.match(r'^\s*(?:[-+*]\s+|\d+[.)]\s+)?(`{3,}|~{3,})(.*)$', line)
+            if opening:
+                fence = (opening[1][0], len(opening[1]))
+                hide(offset, offset + len(line))
+            elif re.match(r'^\s*>|^\s*\[[^\]]+\]:', line):
+                block = True  # includes lazy quote / reference continuation
+                hide(offset, offset + len(line))
+            elif re.match(r'^(?: {4}|\t)', line):
+                hide(offset, offset + len(line))
+            elif re.search(r'<!--|<(?:script|style|pre|code|textarea)\b', line, re.I):
+                tag = re.search(r'<!--|<(script|style|pre|code|textarea)\b', line, re.I)
+                end = '-->' if tag[0] == '<!--' else '</' + tag[1].lower() + '>'
+                hide(offset, offset + len(line))
+                if end not in line[tag.end():].lower():
+                    html = end
+            elif re.match(r'^\s*</?[A-Za-z][\w:-]*(?:\s|>|/)', line):
+                hide(offset, offset + len(line))
+                html = 'blank'
+        offset += len(line)
+
+    # Code spans can cross lines. Only an equal-length backtick run closes one.
+    i = 0
+    while i < len(content):
+        if masked[i] == '\x00':
+            i += 1
+            continue
+        if content[i] == '\\' and i + 1 < len(content):
+            hide(i, i + 2)
+            i += 2
+            continue
+        if content[i] == '`':
+            run = re.match(r'`+', content[i:])[0]
+            end = re.search(r'(?<!`)' + re.escape(run) + r'(?!`)', content[i + len(run):])
+            stop = i + len(run) + end.end() if end else len(content)
+            hide(i, stop)
+            i = stop
+            continue
+        if content[i] == '[' or (content[i] == '!' and content[i:i + 2] == '!['):
+            # Protect complete nested labels and balanced destinations. An
+            # ambiguous/unclosed label protects to end of its paragraph.
+            start = i
+            bracket = i + (content[i] == '!')
+            depth = 1
+            j = bracket + 1
+            while j < len(content) and depth:
+                if content[j] == '\\':
+                    j += 2
+                    continue
+                if content[j] == '[':
+                    depth += 1
+                elif content[j] == ']':
+                    depth -= 1
+                j += 1
+            if depth:
+                paragraph_end = content.find('\n\n', start)
+                j = paragraph_end if paragraph_end != -1 else len(content)
+            elif j < len(content) and content[j] in '([':
+                opener = content[j]
+                closer = ')' if opener == '(' else ']'
+                depth = 1
+                j += 1
+                while j < len(content) and depth:
+                    if content[j] == '\\':
+                        j += 2
+                        continue
+                    if content[j] == opener:
+                        depth += 1
+                    elif content[j] == closer:
+                        depth -= 1
+                    j += 1
+            hide(start, min(j, len(content)))
+            i = j
+            continue
+        if content[i] in {'"', '“', '‘', "'"} and (i == 0 or not content[i - 1].isalnum()):
+            closer = {'“': '”', '‘': '’'}.get(content[i], content[i])
+            end = i + 1
+            paragraph = re.search(r'\r?\n[ \t]*\r?\n', content[end:])
+            limit = end + paragraph.start() if paragraph else len(content)
+            while end < limit:
+                if content[end] == '\\':
+                    end += 2
+                    continue
+                if content[end] == closer:
+                    break
+                end += 1
+            if end < limit:
+                hide(i, end + 1)
+                i = end + 1
+                continue
+        if content[i] == '<':
+            end = content.find('>', i + 1)
+            if end != -1:
+                # Inline paired HTML is opaque as well as its attributes.
+                tag = re.match(r'<([A-Za-z][\w:-]*)\b', content[i:])
+                if tag:
+                    depth = 1
+                    closing_end = None
+                    for token in re.finditer(r'</?' + re.escape(tag[1]) + r'\b[^>]*>', content[end + 1:], re.I):
+                        depth += -1 if token[0].startswith('</') else (0 if token[0].endswith('/>') else 1)
+                        if depth == 0:
+                            closing_end = end + 1 + token.end() - 1
+                            break
+                    if closing_end is not None:
+                        end = closing_end
+                    else:
+                        newline = content.find('\n', end + 1)
+                        end = newline - 1 if newline != -1 else len(content) - 1
+                hide(i, end + 1)
+                i = end + 1
+                continue
+        i += 1
+    for match in re.finditer(r'(?:https?://|www\.)[^\s<>]+|\b[\w.+-]+@[\w.-]+\.[A-Za-z]{2,}', content):
+        hide(match.start(), match.end())
+    return ''.join(masked)
+
+
+def read_config(path: str | None) -> dict:
+    if not path:
+        return {}
+    config = json.loads(Path(path).read_text(encoding='utf-8'))
+    allowed = {'profile', 'disabled_rules', 'allow_terms', 'exclude', 'audience', 'genre'}
+    if not isinstance(config, dict) or set(config) - allowed:
+        raise ValueError('Config must be an object with profile, disabled_rules, allow_terms, exclude, audience or genre.')
+    for key in {'disabled_rules', 'allow_terms', 'exclude'}:
+        if key in config and (not isinstance(config[key], list) or not all(isinstance(x, str) and x for x in config[key])):
+            raise ValueError(f'{key} must be a list of nonempty strings')
+    for key in {'profile', 'audience', 'genre'}:
+        if key in config and not isinstance(config[key], str):
+            raise ValueError(f'{key} must be a string')
+    return config
+
+
+def protected_reason(path: Path, excludes=()) -> str | None:
+    system_aliases = {Path('/var'), Path('/tmp'), Path('/etc')} if sys.platform == 'darwin' else set()
+    if any(p.is_symlink() and p not in system_aliases for p in (path, *path.parents)):
+        return 'symlinks are excluded'
+    if path.name.lower() in PROTECTED_NAMES or path.name.lower().startswith(('license.', 'notice.')):
+        return 'protected document'
+    if any(part.lower() in PROTECTED_DIRS or part.startswith('.') for part in path.parts if part not in {'.', '..'}):
+        return 'protected or hidden directory'
+    if any(fnmatch.fnmatch(path.as_posix(), pattern) or path.match(pattern) for pattern in excludes):
+        return 'excluded by configuration'
+    return None
 
 
 class DocumentHumanizer:
-    """
-    Detects and transforms AI writing indicators in documentation.
+    def __init__(self, profile='standard', config=None):
+        self.config = config or {}
+        self.profile = self.config.get('profile', profile)
+        if self.profile not in {'standard', 'luke'}:
+            raise ValueError('Profile must be standard or luke')
+        self.rules = json.loads(CATALOG_PATH.read_text(encoding='utf-8'))['rules']
+        unknown = set(self.config.get('disabled_rules', [])) - {r['id'] for r in self.rules}
+        if unknown:
+            raise ValueError('Unknown disabled rules: ' + ', '.join(sorted(unknown)))
 
-    Supports 15 different pattern types with confidence-based transformations.
-    """
-
-    def __init__(self):
-        """Initialize pattern matchers and transformation rules."""
-        self._init_patterns()
-        self._init_transformations()
-
-    def _init_patterns(self):
-        """Initialize regex patterns for detection."""
-        # Pattern 1: Em-dashes (>2 per paragraph)
-        self.em_dash_pattern = re.compile(r'—')
-
-        # Pattern 2: Corporate jargon
-        self.jargon_words = {
-            'leverage': 'use',
-            'robust': 'reliable',
-            'streamline': 'simplify',
-            'consolidation': 'combining',
-            'strategic': 'planned',
-            'roi': 'return on investment',
-            'optimal': 'best',
-            'synergy': 'collaboration'
-        }
-        self.jargon_pattern = re.compile(
-            r'\b(' + '|'.join(self.jargon_words.keys()) + r')\b',
-            re.IGNORECASE
-        )
-
-        # Pattern 3: Passive voice
-        self.passive_patterns = [
-            re.compile(r'\bis\s+\w+ed\b', re.IGNORECASE),
-            re.compile(r'\bwas\s+\w+ed\b', re.IGNORECASE),
-            re.compile(r'\bhas\s+been\s+\w+ed\b', re.IGNORECASE),
-            re.compile(r'\bare\s+\w+ed\b', re.IGNORECASE),
-            re.compile(r'\bwere\s+\w+ed\b', re.IGNORECASE),
-        ]
-
-        # Pattern 4: Hedge phrases
-        self.hedge_phrases = [
-            'appears to', 'seems to', 'might be', 'could potentially',
-            'may possibly', 'tends to suggest', 'it is possible that',
-            'arguably', 'perhaps', 'presumably'
-        ]
-        self.hedge_pattern = re.compile(
-            r'\b(' + '|'.join(re.escape(phrase) for phrase in self.hedge_phrases) + r')\b',
-            re.IGNORECASE
-        )
-
-        # Pattern 5: Buzzword clusters (multiple in same sentence)
-        self.buzzwords = [
-            'innovative', 'cutting-edge', 'state-of-the-art', 'revolutionary',
-            'paradigm', 'ecosystem', 'scalable', 'enterprise-grade',
-            'seamless', 'holistic', 'comprehensive', 'integrated'
-        ]
-        self.buzzword_pattern = re.compile(
-            r'\b(' + '|'.join(self.buzzwords) + r')\b',
-            re.IGNORECASE
-        )
-
-        # Pattern 6: Transition phrases
-        self.transition_phrases = [
-            'Additionally', 'Furthermore', 'Moreover', "It's worth noting",
-            'It should be noted', 'In addition', 'It is important to note',
-            'Notably', 'Of note'
-        ]
-        self.transition_pattern = re.compile(
-            r'^(' + '|'.join(re.escape(phrase) for phrase in self.transition_phrases) + r')[,\s]',
-            re.IGNORECASE | re.MULTILINE
-        )
-
-        # Pattern 7: Over-structuring (>5 consecutive bullets)
-        self.bullet_pattern = re.compile(r'^[\s]*[-*+]\s', re.MULTILINE)
-
-        # Pattern 8: Redundancy detection (simple version)
-        # More sophisticated implementation in _detect_redundancy
-
-        # Pattern 9: Success metrics
-        self.success_pattern = re.compile(
-            r'(✅|☑|✓|success metrics achieved|100% complete|fully implemented)',
-            re.IGNORECASE
-        )
-
-        # Pattern 10: Stiff construction
-        self.stiff_phrases = [
-            'This document outlines', 'The system features', 'This section describes',
-            'The following provides', 'This document provides', 'The purpose of this',
-            'This serves to', 'The aim of this'
-        ]
-        self.stiff_pattern = re.compile(
-            r'\b(' + '|'.join(re.escape(phrase) for phrase in self.stiff_phrases) + r')\b',
-            re.IGNORECASE
-        )
-
-        # Pattern 11: Acronyms without context
-        self.common_acronyms = ['AAC', 'ARIA', 'TTS', 'API', 'SDK', 'CLI', 'GUI']
-
-        # Pattern 12: Excessive dates
-        self.date_pattern = re.compile(r'\b\d{4}-\d{2}-\d{2}\b')
-
-        # Pattern 13: Attribution
-        self.attribution_pattern = re.compile(
-            r'(Made with Claude|Generated by|Claude assisted|AI-generated|'
-            r'Created with|Powered by Claude|🤖 Generated)',
-            re.IGNORECASE
-        )
-
-        # Pattern 14: Plural first person
-        self.we_pattern = re.compile(r'\bwe\b', re.IGNORECASE)
-
-        # Pattern 15: Formal metadata
-        self.metadata_pattern = re.compile(
-            r'^(Status:|Author:|Version:|Last Updated:|Document ID:)',
-            re.MULTILINE
-        )
-
-        # Pattern 16: Contrast pivot ("It's not just X, it's Y")
-        self.contrast_pivot_pattern = re.compile(
-            r"(\bisn't just\b|\bis not just\b|\bnot just a\b|"
-            r"\bisn't about\b|\bis not about\b|\bThis isn't\b.{0,60}\bIt's\b|"
-            r"\bnot only\b.{0,60}\bbut also\b|\bIt's not\b.{0,60}[,;—-]\s*it's\b)",
-            re.IGNORECASE
-        )
-
-        # Pattern 17: Rhetorical question pivot ("The result? ...")
-        self.rhetorical_pivot_pattern = re.compile(
-            r"(\bThe result\?|\bThe best part\?|\bThe catch\?|\bThe takeaway\?|"
-            r"\bSo what does this mean\b|\bWhy does this matter\b|\bWhat's next\?)",
-            re.IGNORECASE
-        )
-
-        # Pattern 18: Summary closers ("In conclusion", "Ultimately")
-        self.summary_closer_pattern = re.compile(
-            r"^(In conclusion|Ultimately|At the end of the day|In summary|"
-            r"All in all|To sum up|When all is said and done)\b",
-            re.IGNORECASE | re.MULTILINE
-        )
-
-    def _init_transformations(self):
-        """Initialize transformation rules."""
-        self.auto_fix_rules = {
-            'em_dash': lambda text: text.replace('—', ' (') + ')' if '—' in text else text,
-            'attribution': lambda text: '',
-            'success_metrics': lambda text: re.sub(r'[✅☑✓]\s*', '', text),
-        }
-
-    def _is_code_block(self, line_num: int, lines: List[str]) -> bool:
-        """Check if line is within a code block."""
-        in_code = False
-        for i, line in enumerate(lines[:line_num]):
-            if line.strip().startswith('```'):
-                in_code = not in_code
-        return in_code
-
-    def _is_url_or_citation(self, text: str) -> bool:
-        """Check if text contains URLs or citations."""
-        url_pattern = re.compile(r'https?://|www\.|`[^`]+`|\[[^\]]+\]\([^\)]+\)')
-        return bool(url_pattern.search(text))
-
-    def _is_protected_path(self, filepath: str) -> bool:
-        """Check if file is in protected directory (clinical, specs)."""
-        path = Path(filepath)
-        protected_dirs = ['clinical', 'specs', 'specifications']
-        return any(part in protected_dirs for part in path.parts)
-
-    def _detect_em_dashes(self, lines: List[str]) -> List[Indicator]:
-        """Detect excessive em-dash usage (>2 per paragraph)."""
-        indicators = []
-        paragraph = []
-        para_start = 0
-
-        def record_paragraph() -> None:
-            if not paragraph:
-                return
-            para_text = ' '.join(paragraph)
-            count = para_text.count('—')
-            if count > 2:
-                indicators.append(Indicator(
-                    line=para_start + 1,
-                    text=para_text[:100] + '...' if len(para_text) > 100 else para_text,
-                    confidence=min(0.95, 0.7 + (count - 2) * 0.1),
-                    suggestion=f"Replace {count} em-dashes with parentheses or colons",
-                    pattern_name='em_dashes'
-                ))
-
-        for i, line in enumerate(lines):
-            if line.strip() == '':
-                record_paragraph()
-                paragraph = []
-            else:
-                if not paragraph:
-                    para_start = i
-                paragraph.append(line)
-
-        record_paragraph()
-        return indicators
-
-    def _detect_jargon(self, lines: List[str]) -> List[Indicator]:
-        """Detect corporate jargon."""
-        indicators = []
-        for i, line in enumerate(lines):
-            if self._is_code_block(i, lines) or self._is_url_or_citation(line):
+    def scan_text(self, content: str, strict=False) -> list[Diagnostic]:
+        masked = masked_prose(content)
+        line_starts = [0] + [m.end() for m in re.finditer('\n', content)]
+        allowed_spans = []
+        for term in self.config.get('allow_terms', []):
+            allowed_spans.extend((m.start(), m.end()) for m in re.finditer(re.escape(term), content, re.I))
+        found = []
+        for rule in self.rules:
+            if self.profile not in rule['profiles'] or rule['id'] in self.config.get('disabled_rules', []):
                 continue
-
-            matches = self.jargon_pattern.finditer(line)
-            for match in matches:
-                word = match.group(1).lower()
-                if word in self.jargon_words:
-                    indicators.append(Indicator(
-                        line=i + 1,
-                        text=line.strip(),
-                        confidence=0.85,
-                        suggestion=f"Replace '{word}' with '{self.jargon_words[word]}'",
-                        pattern_name='jargon'
-                    ))
-
-        return indicators
-
-    def _detect_passive_voice(self, lines: List[str]) -> List[Indicator]:
-        """Detect passive voice constructions."""
-        indicators = []
-        for i, line in enumerate(lines):
-            if self._is_code_block(i, lines) or self._is_url_or_citation(line):
+            if rule['strict'] and not strict:
                 continue
+            for match in re.finditer(rule['pattern'], masked, re.I):
+                start, end = match.span()
+                if '\x00' in masked[start:end] or any(start < b and end > a for a, b in allowed_spans):
+                    continue
+                line = bisect_right(line_starts, start)
+                found.append(Diagnostic(rule['id'], line, start - line_starts[line - 1] + 1,
+                                        start, end, content[start:end], rule['severity'],
+                                        rule['message'], rule['suggestion']))
+        return sorted(found, key=lambda item: (item.start, item.end, item.rule_id))
 
-            for pattern in self.passive_patterns:
-                if pattern.search(line):
-                    indicators.append(Indicator(
-                        line=i + 1,
-                        text=line.strip(),
-                        confidence=0.75,
-                        suggestion="Consider rewriting in active voice",
-                        pattern_name='passive_voice'
-                    ))
-                    break
-
-        return indicators
-
-    def _detect_hedge_phrases(self, lines: List[str]) -> List[Indicator]:
-        """Detect hedging language."""
-        indicators = []
-        for i, line in enumerate(lines):
-            if self._is_code_block(i, lines):
-                continue
-
-            match = self.hedge_pattern.search(line)
-            if match:
-                indicators.append(Indicator(
-                    line=i + 1,
-                    text=line.strip(),
-                    confidence=0.80,
-                    suggestion=f"Remove hedge phrase '{match.group(1)}' for stronger writing",
-                    pattern_name='hedge_phrases'
-                ))
-
-        return indicators
-
-    def _detect_buzzword_clusters(self, lines: List[str]) -> List[Indicator]:
-        """Detect multiple buzzwords in same sentence."""
-        indicators = []
-        for i, line in enumerate(lines):
-            if self._is_code_block(i, lines):
-                continue
-
-            # Split into sentences
-            sentences = re.split(r'[.!?]+', line)
-            for sentence in sentences:
-                matches = self.buzzword_pattern.findall(sentence)
-                if len(matches) >= 2:
-                    indicators.append(Indicator(
-                        line=i + 1,
-                        text=sentence.strip(),
-                        confidence=0.90,
-                        suggestion=f"Remove {len(matches)} buzzwords: {', '.join(matches)}",
-                        pattern_name='buzzword_clusters'
-                    ))
-
-        return indicators
-
-    def _detect_transition_phrases(self, lines: List[str]) -> List[Indicator]:
-        """Detect overused transition phrases."""
-        indicators = []
-        for i, line in enumerate(lines):
-            if self._is_code_block(i, lines):
-                continue
-
-            match = self.transition_pattern.search(line)
-            if match:
-                indicators.append(Indicator(
-                    line=i + 1,
-                    text=line.strip(),
-                    confidence=0.75,
-                    suggestion=f"Remove formal transition '{match.group(1)}'",
-                    pattern_name='transition_phrases'
-                ))
-
-        return indicators
-
-    def _detect_over_structuring(self, lines: List[str]) -> List[Indicator]:
-        """Detect excessive bullet points (>5 consecutive)."""
-        indicators = []
-        bullet_count = 0
-        bullet_start = 0
-
-        for i, line in enumerate(lines):
-            if self.bullet_pattern.match(line):
-                if bullet_count == 0:
-                    bullet_start = i
-                bullet_count += 1
-            else:
-                if bullet_count > 5:
-                    indicators.append(Indicator(
-                        line=bullet_start + 1,
-                        text=f"{bullet_count} consecutive bullet points",
-                        confidence=0.70,
-                        suggestion=f"Break up {bullet_count} bullets into smaller sections or paragraphs",
-                        pattern_name='over_structuring'
-                    ))
-                bullet_count = 0
-
-        # Check last group
-        if bullet_count > 5:
-            indicators.append(Indicator(
-                line=bullet_start + 1,
-                text=f"{bullet_count} consecutive bullet points",
-                confidence=0.70,
-                suggestion=f"Break up {bullet_count} bullets into smaller sections or paragraphs",
-                pattern_name='over_structuring'
-            ))
-
-        return indicators
-
-    def _detect_redundancy(self, lines: List[str]) -> List[Indicator]:
-        """Detect redundant information (simple similarity check)."""
-        indicators = []
-        # Simple version: look for very similar consecutive lines
-        for i in range(len(lines) - 1):
-            if len(lines[i].strip()) < 20 or self._is_code_block(i, lines):
-                continue
-
-            similarity = difflib.SequenceMatcher(None, lines[i], lines[i + 1]).ratio()
-            if similarity > 0.7 and similarity < 1.0:
-                indicators.append(Indicator(
-                    line=i + 1,
-                    text=f"{lines[i].strip()[:50]}...",
-                    confidence=0.65,
-                    suggestion="Similar content on consecutive lines - possible redundancy",
-                    pattern_name='redundancy'
-                ))
-
-        return indicators
-
-    def _detect_success_metrics(self, lines: List[str]) -> List[Indicator]:
-        """Detect success metric indicators."""
-        indicators = []
-        for i, line in enumerate(lines):
-            if self._is_code_block(i, lines):
-                continue
-
-            match = self.success_pattern.search(line)
-            if match:
-                indicators.append(Indicator(
-                    line=i + 1,
-                    text=line.strip(),
-                    confidence=0.95,
-                    suggestion=f"Remove success indicator '{match.group(1)}'",
-                    pattern_name='success_metrics'
-                ))
-
-        return indicators
-
-    def _detect_stiff_construction(self, lines: List[str]) -> List[Indicator]:
-        """Detect stiff, template-like constructions."""
-        indicators = []
-        for i, line in enumerate(lines):
-            if self._is_code_block(i, lines):
-                continue
-
-            match = self.stiff_pattern.search(line)
-            if match:
-                indicators.append(Indicator(
-                    line=i + 1,
-                    text=line.strip(),
-                    confidence=0.80,
-                    suggestion=f"Rewrite to remove template phrase '{match.group(1)}'",
-                    pattern_name='stiff_construction'
-                ))
-
-        return indicators
-
-    def _detect_acronyms_without_context(self, lines: List[str]) -> List[Indicator]:
-        """Detect acronyms used without nearby definition."""
-        indicators = []
-        for i, line in enumerate(lines):
-            if self._is_code_block(i, lines):
-                continue
-
-            for acronym in self.common_acronyms:
-                if re.search(r'\b' + acronym + r'\b', line):
-                    # Check surrounding lines for definition
-                    context_start = max(0, i - 2)
-                    context_end = min(len(lines), i + 3)
-                    context = ' '.join(lines[context_start:context_end])
-
-                    # Simple check: is the full form mentioned?
-                    if acronym not in context.replace(acronym, ''):
-                        indicators.append(Indicator(
-                            line=i + 1,
-                            text=line.strip(),
-                            confidence=0.60,
-                            suggestion=f"Define '{acronym}' on first use",
-                            pattern_name='acronyms_without_context'
-                        ))
-
-        return indicators
-
-    def _detect_excessive_dates(self, lines: List[str]) -> List[Indicator]:
-        """Detect excessive specific timestamps."""
-        indicators = []
-        for i, line in enumerate(lines):
-            if self._is_code_block(i, lines):
-                continue
-
-            matches = list(self.date_pattern.finditer(line))
-            if len(matches) > 0:
-                indicators.append(Indicator(
-                    line=i + 1,
-                    text=line.strip(),
-                    confidence=0.70,
-                    suggestion=f"Remove or generalize {len(matches)} specific date(s)",
-                    pattern_name='excessive_dates'
-                ))
-
-        return indicators
-
-    def _detect_attribution(self, lines: List[str]) -> List[Indicator]:
-        """Detect AI attribution phrases."""
-        indicators = []
-        for i, line in enumerate(lines):
-            match = self.attribution_pattern.search(line)
-            if match:
-                indicators.append(Indicator(
-                    line=i + 1,
-                    text=line.strip(),
-                    confidence=0.99,
-                    suggestion=f"Remove attribution '{match.group(1)}'",
-                    pattern_name='attribution'
-                ))
-
-        return indicators
-
-    def _detect_plural_first_person(self, lines: List[str]) -> List[Indicator]:
-        """Detect 'we' in solo developer context."""
-        indicators = []
-        for i, line in enumerate(lines):
-            if self._is_code_block(i, lines) or self._is_url_or_citation(line):
-                continue
-
-            # Check for "we" but not in quotes
-            if self.we_pattern.search(line):
-                # Higher confidence if it's in a non-collaborative context
-                confidence = 0.85 if 'team' not in line.lower() and 'collaboration' not in line.lower() else 0.60
-                indicators.append(Indicator(
-                    line=i + 1,
-                    text=line.strip(),
-                    confidence=confidence,
-                    suggestion="Replace 'we' with 'I' (solo developer context)",
-                    pattern_name='plural_first_person'
-                ))
-
-        return indicators
-
-    def _detect_formal_metadata(self, lines: List[str]) -> List[Indicator]:
-        """Detect excessive formal metadata fields."""
-        indicators = []
-        metadata_count = 0
-        metadata_lines = []
-
-        for i, line in enumerate(lines):
-            if self.metadata_pattern.search(line):
-                metadata_count += 1
-                metadata_lines.append(i + 1)
-
-        if metadata_count > 3:
-            indicators.append(Indicator(
-                line=metadata_lines[0],
-                text=f"{metadata_count} metadata fields detected",
-                confidence=0.75,
-                suggestion=f"Reduce {metadata_count} metadata fields to essential information only",
-                pattern_name='formal_metadata'
-            ))
-
-        return indicators
-
-    def _detect_contrast_pivots(self, lines: List[str]) -> List[Indicator]:
-        """Detect 'not X, but Y' negation-then-redefinition pivots."""
-        indicators = []
-        for i, line in enumerate(lines):
-            if self._is_code_block(i, lines):
-                continue
-
-            match = self.contrast_pivot_pattern.search(line)
-            if match:
-                indicators.append(Indicator(
-                    line=i + 1,
-                    text=line.strip(),
-                    confidence=0.90,
-                    suggestion="Cut the negation and state the positive claim directly",
-                    pattern_name='contrast_pivot'
-                ))
-
-        return indicators
-
-    def _detect_rhetorical_pivots(self, lines: List[str]) -> List[Indicator]:
-        """Detect rhetorical question pivots like 'The result? ...'."""
-        indicators = []
-        for i, line in enumerate(lines):
-            if self._is_code_block(i, lines):
-                continue
-
-            match = self.rhetorical_pivot_pattern.search(line)
-            if match:
-                indicators.append(Indicator(
-                    line=i + 1,
-                    text=line.strip(),
-                    confidence=0.85,
-                    suggestion=f"Answer the question without asking it ('{match.group(1)}')",
-                    pattern_name='rhetorical_pivot'
-                ))
-
-        return indicators
-
-    def _detect_summary_closers(self, lines: List[str]) -> List[Indicator]:
-        """Detect farewell paragraphs ('In conclusion', 'Ultimately')."""
-        indicators = []
-        for i, line in enumerate(lines):
-            if self._is_code_block(i, lines):
-                continue
-
-            match = self.summary_closer_pattern.match(line.strip())
-            if match:
-                indicators.append(Indicator(
-                    line=i + 1,
-                    text=line.strip(),
-                    confidence=0.80,
-                    suggestion="End on the last real fact; documentation doesn't need a farewell",
-                    pattern_name='summary_closer'
-                ))
-
-        return indicators
-
-    def scan_file(self, filepath: str) -> Dict[str, List[Indicator]]:
-        """
-        Scan file and return detected indicators with confidence scores.
-
-        Args:
-            filepath: Path to file to scan
-
-        Returns:
-            Dictionary mapping pattern names to lists of indicators
-        """
-        path = Path(filepath)
-        if not path.exists():
-            raise FileNotFoundError(f"File not found: {filepath}")
-
-        if path.suffix not in ['.md', '.html', '.txt']:
-            raise ValueError(f"Unsupported file type: {path.suffix}")
-
-        with open(filepath, 'r', encoding='utf-8') as f:
-            content = f.read()
-
-        lines = content.split('\n')
-
-        # Run all detection methods
-        all_indicators = []
-        all_indicators.extend(self._detect_em_dashes(lines))
-        all_indicators.extend(self._detect_jargon(lines))
-        all_indicators.extend(self._detect_passive_voice(lines))
-        all_indicators.extend(self._detect_hedge_phrases(lines))
-        all_indicators.extend(self._detect_buzzword_clusters(lines))
-        all_indicators.extend(self._detect_transition_phrases(lines))
-        all_indicators.extend(self._detect_over_structuring(lines))
-        all_indicators.extend(self._detect_redundancy(lines))
-        all_indicators.extend(self._detect_success_metrics(lines))
-        all_indicators.extend(self._detect_stiff_construction(lines))
-        all_indicators.extend(self._detect_acronyms_without_context(lines))
-        all_indicators.extend(self._detect_excessive_dates(lines))
-        all_indicators.extend(self._detect_attribution(lines))
-        all_indicators.extend(self._detect_plural_first_person(lines))
-        all_indicators.extend(self._detect_formal_metadata(lines))
-        all_indicators.extend(self._detect_contrast_pivots(lines))
-        all_indicators.extend(self._detect_rhetorical_pivots(lines))
-        all_indicators.extend(self._detect_summary_closers(lines))
-
-        # Group by pattern name
+    def scan_file(self, filepath: str, strict=False) -> dict[str, list[Diagnostic]]:
+        path = Path(filepath).absolute()
+        reason = protected_reason(path, self.config.get('exclude', []))
+        if reason:
+            raise ValueError(f'{filepath}: {reason}')
+        if path.suffix.lower() not in SUPPORTED:
+            raise ValueError(f'Unsupported file type: {path.suffix or "none"}')
+        content = path.read_bytes().decode('utf-8')
         grouped = {}
-        for indicator in all_indicators:
-            if indicator.pattern_name not in grouped:
-                grouped[indicator.pattern_name] = []
-            grouped[indicator.pattern_name].append(indicator)
-
+        for item in self.scan_text(content, strict):
+            grouped.setdefault(item.rule_id, []).append(item)
         return grouped
 
-    def apply_transforms(self, content: str, confidence_threshold: float = 0.8) -> str:
-        """Preserve source text; previous lexical rewrites are not safe to automate."""
+    def apply_transforms(self, content: str, confidence_threshold=None) -> str:
+        """Compatibility no-op. No lexical rewrite has an automatic safety contract."""
+        if confidence_threshold is not None:
+            warnings.warn('Confidence thresholds were removed in 2.0; text is unchanged.', DeprecationWarning, stacklevel=2)
         return content
 
     def generate_diff(self, original: str, transformed: str) -> str:
-        """
-        Generate unified diff for preview.
+        return ''.join(difflib.unified_diff(original.splitlines(keepends=True), transformed.splitlines(keepends=True),
+                                            fromfile='original', tofile='edited'))
 
-        Args:
-            original: Original content
-            transformed: Transformed content
-
-        Returns:
-            Unified diff string
-        """
-        original_lines = original.splitlines(keepends=True)
-        transformed_lines = transformed.splitlines(keepends=True)
-
-        diff = difflib.unified_diff(
-            original_lines,
-            transformed_lines,
-            fromfile='original',
-            tofile='humanized',
-            lineterm='\n'
-        )
-
-        return ''.join(diff)
-
-    def batch_process(
-        self,
-        file_paths: List[str],
-        parallel: bool = True,
-        max_workers: int = 10
-    ) -> Dict[str, Dict[str, List[Indicator]]]:
-        """
-        Process multiple files in parallel.
-
-        Args:
-            file_paths: List of file paths to process
-            parallel: Whether to use parallel processing
-            max_workers: Maximum number of worker threads
-
-        Returns:
-            Dictionary mapping file paths to their scan results
-        """
-        results = {}
-
-        if parallel and len(file_paths) > 1:
+    def batch_process(self, file_paths, parallel=True, max_workers=4):
+        def scan(path):
+            try:
+                return path, self.scan_file(path)
+            except (OSError, ValueError, UnicodeError) as error:
+                return path, {'error': str(error)}
+        if max_workers < 1:
+            raise ValueError('max_workers must be positive')
+        paths = sorted(set(map(str, file_paths)))
+        if parallel:
             with ThreadPoolExecutor(max_workers=max_workers) as executor:
-                future_to_path = {
-                    executor.submit(self.scan_file, path): path
-                    for path in file_paths
-                }
+                return dict(executor.map(scan, paths))
+        return dict(map(scan, paths))
 
-                for future in as_completed(future_to_path):
-                    path = future_to_path[future]
-                    try:
-                        results[path] = future.result()
-                    except Exception as e:
-                        results[path] = {'error': [Indicator(
-                            line=0,
-                            text=str(e),
-                            confidence=1.0,
-                            suggestion='Fix error before processing',
-                            pattern_name='error'
-                        )]}
+
+def select_files(targets, excludes=()):
+    selected, skipped, errors = {}, {}, {}
+    def visit(path):
+        path = path.absolute()
+        name = str(path)
+        reason = protected_reason(path, excludes)
+        if reason:
+            skipped[name] = reason
+        elif not path.exists():
+            errors[name] = 'path does not exist'
+        elif path.is_dir():
+            try:
+                for child in sorted(path.iterdir()):
+                    visit(child)
+            except OSError as error:
+                errors[name] = str(error)
+        elif not path.is_file():
+            skipped[name] = 'not a regular file'
+        elif path.suffix.lower() not in SUPPORTED:
+            skipped[name] = 'unsupported file type'
         else:
-            for path in file_paths:
-                try:
-                    results[path] = self.scan_file(path)
-                except Exception as e:
-                    results[path] = {'error': [Indicator(
-                        line=0,
-                        text=str(e),
-                        confidence=1.0,
-                        suggestion='Fix error before processing',
-                        pattern_name='error'
-                    )]}
-
-        return results
+            selected[name] = path
+    for target in targets:
+        visit(Path(target))
+    return [selected[k] for k in sorted(selected)], skipped, errors
 
 
-def format_scan_results(results: Dict[str, List[Indicator]]) -> str:
-    """Format scan results for display."""
-    output = []
-
-    if not results:
-        return "✓ No AI writing indicators detected"
-
-    total_indicators = sum(len(indicators) for indicators in results.values())
-    output.append(f"\n🔍 Found {total_indicators} AI writing indicators:\n")
-
-    for pattern_name, indicators in sorted(results.items()):
-        output.append(f"\n{pattern_name.upper().replace('_', ' ')} ({len(indicators)} occurrences):")
-        output.append("=" * 60)
-
-        for indicator in indicators:
-            confidence_bar = "█" * int(indicator.confidence * 10)
-            output.append(f"\nLine {indicator.line} [{confidence_bar}] {indicator.confidence:.0%} confidence")
-            output.append(f"  Text: {indicator.text}")
-            output.append(f"  💡 {indicator.suggestion}")
-
-    return '\n'.join(output)
-
-
-def main():
-    """CLI entry point."""
-    parser = argparse.ArgumentParser(
-        description='Detect and remove AI writing indicators from documentation',
-        formatter_class=argparse.RawDescriptionHelpFormatter,
-        epilog="""
-Examples:
-  %(prog)s scan file.md
-  %(prog)s scan file.md --threshold 0.7
-  %(prog)s fix file.md --confidence 0.8
-  %(prog)s diff file.md
-  %(prog)s batch file1.md file2.md --parallel
-        """
-    )
-
-    parser.add_argument(
-        'command',
-        choices=['scan', 'fix', 'diff', 'batch'],
-        help='Command to execute'
-    )
-
-    parser.add_argument(
-        'files',
-        nargs='+',
-        help='File(s) to process'
-    )
-
-    parser.add_argument(
-        '--threshold',
-        type=float,
-        default=0.7,
-        help='Confidence threshold for scan results (0.0-1.0, default: 0.7)'
-    )
-
-    parser.add_argument(
-        '--confidence',
-        type=float,
-        default=0.8,
-        help='Confidence threshold for applying fixes (0.0-1.0, default: 0.8)'
-    )
-
-    parser.add_argument(
-        '--parallel',
-        action='store_true',
-        help='Process files in parallel (batch mode only)'
-    )
-
-    parser.add_argument(
-        '--max-workers',
-        type=int,
-        default=10,
-        help='Maximum parallel workers (default: 10)'
-    )
-
-    parser.add_argument(
-        '--dry-run',
-        action='store_true',
-        help='Preview changes without saving (fix mode only)'
-    )
-
-    args = parser.parse_args()
-
-    humanizer = DocumentHumanizer()
-
+def main(argv=None):
+    parser = argparse.ArgumentParser(description='Review English prose while preserving source files.')
+    parser.add_argument('command', choices=['scan', 'batch', 'fix', 'diff', 'rules'])
+    parser.add_argument('files', nargs='*')
+    parser.add_argument('--format', choices=['text', 'json'], default='text')
+    parser.add_argument('--strict', action='store_true', help='Include contextual suggestions; never grants write access')
+    parser.add_argument('--profile', choices=['standard', 'luke'])
+    parser.add_argument('--config', help='Explicit local JSON configuration')
+    parser.add_argument('--check', action='store_true', help='Exit 1 for findings; operational errors exit 2')
+    parser.add_argument('--dry-run', action='store_true', help='Accepted for compatibility; all commands preserve files')
+    parser.add_argument('--parallel', action='store_true', help='Scan files concurrently with stable output ordering')
+    parser.add_argument('--max-workers', type=int, default=4)
+    parser.add_argument('--confidence', help=argparse.SUPPRESS)
+    parser.add_argument('--threshold', help=argparse.SUPPRESS)
+    args = parser.parse_args(argv)
+    if args.confidence is not None or args.threshold is not None:
+        parser.error('Numeric confidence was removed in 2.0. Use --strict or --check; no semantic fixes are automatic.')
+    if args.max_workers < 1 or args.max_workers > 32:
+        parser.error('--max-workers must be between 1 and 32')
     try:
-        if args.command == 'scan':
-            for filepath in args.files:
-                print(f"\n📄 Scanning: {filepath}")
-                results = humanizer.scan_file(filepath)
-
-                # Filter by threshold
-                filtered = {
-                    pattern: [ind for ind in indicators if ind.confidence >= args.threshold]
-                    for pattern, indicators in results.items()
-                }
-                filtered = {k: v for k, v in filtered.items() if v}
-
-                print(format_scan_results(filtered))
-
-        elif args.command == 'fix':
-            for filepath in args.files:
-                print(f"\n🔧 Fixing: {filepath}")
-
-                with open(filepath, 'r', encoding='utf-8') as f:
-                    original = f.read()
-
-                transformed = humanizer.apply_transforms(original, args.confidence)
-
-                if args.dry_run:
-                    diff = humanizer.generate_diff(original, transformed)
-                    print("\nPreview of changes:")
-                    print(diff)
-                else:
-                    with open(filepath, 'w', encoding='utf-8') as f:
-                        f.write(transformed)
-                    print(f"✓ Fixed and saved: {filepath}")
-
-        elif args.command == 'diff':
-            for filepath in args.files:
-                print(f"\n📊 Diff for: {filepath}")
-
-                with open(filepath, 'r', encoding='utf-8') as f:
-                    original = f.read()
-
-                transformed = humanizer.apply_transforms(original, args.confidence)
-                diff = humanizer.generate_diff(original, transformed)
-
-                if diff:
-                    print(diff)
-                else:
-                    print("✓ No changes would be made")
-
-        elif args.command == 'batch':
-            print(f"\n⚙️  Processing {len(args.files)} files...")
-            results = humanizer.batch_process(
-                args.files,
-                parallel=args.parallel,
-                max_workers=args.max_workers
-            )
-
-            for filepath, file_results in results.items():
-                print(f"\n📄 {filepath}:")
-
-                # Filter by threshold
-                filtered = {
-                    pattern: [ind for ind in indicators if ind.confidence >= args.threshold]
-                    for pattern, indicators in file_results.items()
-                }
-                filtered = {k: v for k, v in filtered.items() if v}
-
-                if filtered:
-                    total = sum(len(indicators) for indicators in filtered.values())
-                    print(f"  Found {total} indicators")
-                else:
-                    print("  ✓ Clean")
-
-    except Exception as e:
-        print(f"\n❌ Error: {e}", file=sys.stderr)
-        return 1
-
-    return 0
+        config = read_config(args.config)
+        if args.profile:
+            config['profile'] = args.profile
+        humanizer = DocumentHumanizer(config=config)
+        if args.command == 'rules':
+            if args.files:
+                parser.error('rules does not take file targets')
+            print(json.dumps({'schema_version': 1, 'rules': humanizer.rules}, ensure_ascii=False, indent=2))
+            return 0
+        targets = args.files or [p for p in ['README.md', 'CONTRIBUTING.md', 'docs'] if Path(p).exists()]
+        paths, skipped, errors = select_files(targets, config.get('exclude', []))
+        def scan(path):
+            try:
+                findings = humanizer.scan_file(str(path), args.strict)
+                return {'path': str(path), 'status': 'scanned', 'diagnostics': [asdict(d) for group in findings.values() for d in group]}
+            except (OSError, ValueError, UnicodeError) as error:
+                return {'path': str(path), 'status': 'error', 'reason': str(error), 'diagnostics': []}
+        if args.parallel:
+            with ThreadPoolExecutor(max_workers=args.max_workers) as executor:
+                results = list(executor.map(scan, paths))
+        else:
+            results = list(map(scan, paths))
+        results += [{'path': p, 'status': 'skipped', 'reason': why, 'diagnostics': []} for p, why in skipped.items()]
+        results += [{'path': p, 'status': 'error', 'reason': why, 'diagnostics': []} for p, why in errors.items()]
+        results.sort(key=lambda r: r['path'])
+        for result in results:
+            result['diagnostics'].sort(key=lambda d: (d['start'], d['end'], d['rule_id']))
+        count = sum(len(r['diagnostics']) for r in results)
+        scanned = sum(r['status'] == 'scanned' for r in results)
+        report = {'schema_version': 2, 'command': args.command, 'profile': humanizer.profile,
+                  'context': {k: config[k] for k in ('audience', 'genre') if k in config},
+                  'changed_files': 0, 'findings': count, 'files': results,
+                  'editing': 'Contextual agent editing required; no automatic text changes.'}
+        if args.format == 'json':
+            print(json.dumps(report, ensure_ascii=False, indent=2))
+        else:
+            for result in results:
+                print(f"{result['path']}: {result['status']}" + (': ' + result['reason'] if 'reason' in result else ''))
+                for d in result['diagnostics']:
+                    print(f"  {d['line']}:{d['column']} {d['rule_id']} {d['severity']}: {d['message']}\n    {d['suggestion']}")
+            print(f'{scanned} files scanned; {count} suggestions; 0 files changed.')
+            if args.command in {'fix', 'diff'}:
+                print(report['editing'])
+        if not scanned or any(r['status'] == 'error' for r in results):
+            return 2
+        return 1 if args.check and count else 0
+    except (OSError, ValueError, UnicodeError) as error:
+        print(f'Humanize: {error}', file=sys.stderr)
+        return 2
 
 
 if __name__ == '__main__':
-    sys.exit(main())
+    raise SystemExit(main())

@@ -1,26 +1,19 @@
-# humanize
+# Humanize development
 
-Claude Code plugin that strips machine-generated writing patterns from documentation.
+Canonical source: actually-useful-ai/humanize. Installed caches are projections;
+edit this repository and reinstall a versioned package.
 
-## Structure
+The universal workflow is skills/humanize/SKILL.md. commands/humanize.md is a thin
+Claude command wrapper. Keep Codex, Claude, and Cursor manifests aligned.
 
-- `.claude-plugin/plugin.json` — Plugin metadata
-- `.claude-plugin/marketplace.json` — Marketplace listing
-- `skills/humanize/SKILL.md` — Full skill definition with 23 detection patterns and confidence scoring
-- `commands/humanize.md` — `/humanize` command entry point
-- `skills/humanize/scripts/doc_humanizer.py` — Deterministic scanner and high-confidence fixes
-- `tests/test_plugin_package.py` — Package structure and metadata checks
+The dependency-free Python scanner reads references/rules.json and emits
+contextual diagnostics. It never writes target files. Agent editing remains
+scoped by the skill. No semantic rule currently qualifies for automatic fixing.
 
-## How It Works
+Run PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s tests -v and
+python3 tests/evaluate_editorial.py. Add preservation/counterexample cases when
+changing rules or Markdown protection. Do not turn corpus consistency checks
+into claims of human writing-quality validation.
 
-One command: `/humanize [path] [--dry-run] [--strict]`
-
-Scans Markdown files and package metadata for 23 categories of weak writing,
-scores each match by confidence, then fixes high-confidence patterns and
-suggests changes for the rest.
-
-## Development
-
-The plugin has no build step or third-party runtime dependency. Edit the
-Markdown sources directly and use the standard-library Python scanner and tests
-for validation.
+Keep Luke Steuber as author. Follow workspace Git guidance and stage only
+intended files. Public documentation describes behavior and verified limits.
