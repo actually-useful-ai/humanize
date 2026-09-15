@@ -3,6 +3,8 @@
 Humanize edits prose for clarity, flow, and the writer's voice. It preserves
 facts, uncertainty, attribution, code, and citations. Good prose can stay as it is.
 
+[![Installation guide](https://img.shields.io/badge/Install-Get_started-2563eb?style=flat-square)](#install) [![MIT code license](https://img.shields.io/badge/Code-MIT-181717?style=flat-square)](LICENSE) [![Actually Useful AI collection](https://img.shields.io/badge/Actually_Useful_AI-Collection-181717?style=flat-square)](https://github.com/actually-useful-ai)
+
 Use it to improve a README, clarify product copy, tighten release notes, or match
 a supplied writing sample. The agent performs the editorial pass. An optional
 local Python scanner points out contextual patterns without changing files.
@@ -127,4 +129,11 @@ percentage is claimed.
 
 ## License
 
-MIT. Copyright Luke Steuber. See [LICENSE](LICENSE).
+[MIT](LICENSE).
+
+## Around here
+
+[Luke Steuber](https://github.com/lukeslp) · [Data Poems](https://github.com/data-poems) · [Ambient Time](https://github.com/ambient-time) · [Actually Useful AI](https://github.com/actually-useful-ai) · [One Impossible Thing](https://github.com/one-impossible-thing)
+
+Made by [Luke Steuber](https://lukesteuber.com). Questions or collaboration:
+[luke@lukesteuber.com](mailto:luke@lukesteuber.com).
