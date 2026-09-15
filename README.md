@@ -1,6 +1,8 @@
-# humanize
+# Humanize
 
 Humanize restores natural flow to documentation and other user-facing prose.
+
+[![Installation guide](https://img.shields.io/badge/Install-Get_started-2563eb?style=flat-square)](#install) [![MIT code license](https://img.shields.io/badge/Code-MIT-181717?style=flat-square)](LICENSE) [![Actually Useful AI collection](https://img.shields.io/badge/Actually_Useful_AI-Collection-181717?style=flat-square)](https://github.com/actually-useful-ai)
 
 LLM-generated text has tells: em-dashes for dramatic effect, contrast pivots ("It's not just X, it's Y"), corporate jargon clusters ("leverage a robust ecosystem"), rhetorical pivots ("The result? ..."), and stiff constructions like "It is important to note that." This plugin detects 23 categories of these patterns and fixes them.
 
@@ -109,4 +111,11 @@ The plugin also flags prohibited umbrella branding. Use "LLM", "language model",
 
 ## License
 
-MIT
+[MIT](LICENSE).
+
+## Around here
+
+[Luke Steuber](https://github.com/lukeslp) · [Data Poems](https://github.com/data-poems) · [Ambient Time](https://github.com/ambient-time) · [Actually Useful AI](https://github.com/actually-useful-ai) · [One Impossible Thing](https://github.com/one-impossible-thing)
+
+Made by [Luke Steuber](https://lukesteuber.com). Questions or collaboration:
+[luke@lukesteuber.com](mailto:luke@lukesteuber.com).
