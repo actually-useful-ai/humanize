@@ -636,57 +636,8 @@ class DocumentHumanizer:
         return grouped
 
     def apply_transforms(self, content: str, confidence_threshold: float = 0.8) -> str:
-        """
-        Apply transformations above confidence threshold.
-
-        Args:
-            content: Original content
-            confidence_threshold: Minimum confidence to apply transform (0.0-1.0)
-
-        Returns:
-            Transformed content
-        """
-        lines = content.split('\n')
-        transformed_lines = lines.copy()
-
-        em_dash_lines = set()
-        paragraph_lines = []
-        for i, line in enumerate(lines + ['']):
-            if line.strip():
-                paragraph_lines.append(i)
-                continue
-            if sum(lines[index].count('—') for index in paragraph_lines) > 2:
-                em_dash_lines.update(paragraph_lines)
-            paragraph_lines = []
-
-        # Apply high-confidence fixes
-        for i, line in enumerate(transformed_lines):
-            if self._is_code_block(i, lines) or self._is_url_or_citation(line):
-                continue
-
-            transformed = line
-
-            # Attribution removal (confidence 0.99)
-            if confidence_threshold <= 0.99:
-                transformed = self.attribution_pattern.sub('', transformed)
-
-            # Success metrics removal (confidence 0.95)
-            if confidence_threshold <= 0.95:
-                transformed = self.success_pattern.sub('', transformed)
-
-            # Em-dash replacement (confidence 0.85-0.95)
-            if confidence_threshold <= 0.90 and i in em_dash_lines:
-                transformed = transformed.replace('—', ':')
-
-            # Jargon replacement (confidence 0.85)
-            if confidence_threshold <= 0.85:
-                for jargon, replacement in self.jargon_words.items():
-                    pattern = re.compile(r'\b' + jargon + r'\b', re.IGNORECASE)
-                    transformed = pattern.sub(replacement, transformed)
-
-            transformed_lines[i] = transformed
-
-        return '\n'.join(transformed_lines)
+        """Preserve source text; previous lexical rewrites are not safe to automate."""
+        return content
 
     def generate_diff(self, original: str, transformed: str) -> str:
         """
