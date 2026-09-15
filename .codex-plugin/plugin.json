@@ -1,7 +1,7 @@
 {
   "name": "humanize",
-  "version": "1.2.2",
-  "description": "Improve user-facing prose by finding weak, repetitive language and proposing direct, specific revisions.",
+  "version": "2.0.0",
+  "description": "Edit prose for clarity, flow, and voice while preserving facts, uncertainty, and attribution.",
   "author": {
     "name": "Luke Steuber",
     "email": "luke@lukesteuber.com",
@@ -20,7 +20,7 @@
   "interface": {
     "displayName": "Humanize",
     "shortDescription": "Make user-facing prose direct and natural.",
-    "longDescription": "Review documentation and other user-facing prose for weak constructions, repetitive cadence, jargon, and unnecessary hedging, then propose clearer revisions without changing meaning.",
+    "longDescription": "Edit prose for clarity, flow, and voice while preserving facts, uncertainty, and attribution.",
     "developerName": "Luke Steuber",
     "category": "Productivity",
     "capabilities": [

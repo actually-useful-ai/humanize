@@ -8,7 +8,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 SCANNER_PATH = ROOT / "skills" / "humanize" / "scripts" / "doc_humanizer.py"
-EXPECTED_VERSION = "1.2.1"
+EXPECTED_VERSION = json.loads((ROOT / ".claude-plugin" / "plugin.json").read_text())["version"]
 
 
 def load_scanner_module():
@@ -79,7 +79,7 @@ class HumanizePluginPackageTests(unittest.TestCase):
         self.assertEqual(manifests["Cursor"]["skills"], "./skills/")
         self.assertEqual(manifests["Cursor"]["author"]["name"], "Luke Steuber")
         self.assertEqual(cursor_marketplace["name"], "actually-useful-ai-humanize")
-        self.assertEqual(cursor_marketplace["metadata"]["version"], "1.2.1")
+        self.assertEqual(cursor_marketplace["metadata"]["version"], EXPECTED_VERSION)
         self.assertEqual(cursor_marketplace["plugins"][0]["name"], "humanize")
         self.assertEqual(cursor_marketplace["plugins"][0]["source"], ".")
 
@@ -125,16 +125,16 @@ class HumanizePluginPackageTests(unittest.TestCase):
         self.assertEqual(transformed, "We are ready. Our work is done.")
         self.assertNotIn("I are", transformed)
 
-    def test_high_confidence_transforms_compose_on_the_same_line(self):
+    def test_attribution_and_status_are_preserved(self):
         humanizer = SCANNER.DocumentHumanizer()
 
         transformed = humanizer.apply_transforms(
             "Made with Claude ✅ fully implemented"
         )
 
-        self.assertEqual(transformed.strip(), "")
+        self.assertEqual(transformed, "Made with Claude ✅ fully implemented")
 
-    def test_eof_paragraph_em_dashes_are_detected_and_fixed_consistently(self):
+    def test_punctuation_is_preserved(self):
         humanizer = SCANNER.DocumentHumanizer()
         content = "First — one\nsecond — two\nthird — three"
         with tempfile.TemporaryDirectory() as directory:
@@ -143,10 +143,8 @@ class HumanizePluginPackageTests(unittest.TestCase):
 
             results = humanizer.scan_file(str(path))
 
-        self.assertIn("em_dashes", results)
-        self.assertEqual(len(results["em_dashes"]), 1)
         transformed = humanizer.apply_transforms(content)
-        self.assertNotIn("—", transformed)
+        self.assertEqual(content, transformed)
 
 
 if __name__ == "__main__":

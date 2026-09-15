@@ -1,9 +1,10 @@
 ---
-description: Strip robot language from user-facing content — runs the humanize skill on the given path (default: docs in cwd)
+description: Edit scoped prose for clarity and voice while preserving meaning
 ---
 
-Apply the **humanize** skill (skills/humanize/SKILL.md in this plugin — the single source of the rules) to the target below. Do not improvise a second rule set here.
+Apply the **humanize** skill at `skills/humanize/SKILL.md` in this plugin. It is
+the single source for targets, editing, protection, and reporting.
 
-Target: `$ARGUMENTS` if given (file or directory); otherwise README.md, CHANGELOG.md, any `.md` under docs/, and package descriptions in package.json / pyproject.toml in the current working directory.
-
-Follow the skill's principle — flow, not concealment — and its editing test: every change must make the sentence say something more directly, in a rhythm a person would use. Report what changed, file by file, and anything you deliberately left alone.
+Treat `$ARGUMENTS` as the requested target and options, never shell code. Follow
+the skill's default target selection when no target is given. `--dry-run` is
+read-only; `--strict` adds contextual scrutiny without changing preservation.

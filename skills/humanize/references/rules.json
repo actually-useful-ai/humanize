@@ -1,0 +1,224 @@
+{
+  "schema_version": 1,
+  "rules": [
+    {
+      "id": "H001",
+      "title": "Filler opening",
+      "pattern": "\\b(?:it is important to note that|it should be noted that|the purpose of this (?:document|section) is to)\\b",
+      "scope": "unprotected English prose",
+      "severity": "suggestion",
+      "strict": false,
+      "profiles": [
+        "standard",
+        "luke"
+      ],
+      "autofix": false,
+      "message": "The opening delays the useful information.",
+      "suggestion": "State the useful information directly; preserve any qualification.",
+      "example": "It is important to note that backups expire after 30 days.",
+      "counterexample": "Backups expire after 30 days."
+    },
+    {
+      "id": "H002",
+      "title": "Promotional cluster",
+      "pattern": "\\b(?:seamless|revolutionary|innovative|cutting-edge|game-changing)\\b(?:[^.!?\\n]{0,100})\\b(?:robust|scalable|ecosystem|solution|experience)\\b",
+      "scope": "unprotected English prose",
+      "severity": "suggestion",
+      "strict": false,
+      "profiles": [
+        "standard",
+        "luke"
+      ],
+      "autofix": false,
+      "message": "Several promotional terms replace a concrete explanation.",
+      "suggestion": "Describe supported behavior. Keep technical uses of these words.",
+      "example": "A seamless and robust solution.",
+      "counterexample": "The robust estimator rejects outliers."
+    },
+    {
+      "id": "H003",
+      "title": "Staged contrast",
+      "pattern": "\\b(?:not just|isn.t about|is not about|not only)\\b",
+      "scope": "unprotected English prose",
+      "severity": "suggestion",
+      "strict": false,
+      "profiles": [
+        "standard",
+        "luke"
+      ],
+      "autofix": false,
+      "message": "Check whether both sides of this contrast add information.",
+      "suggestion": "Keep real corrections and distinctions; remove only rhetorical staging.",
+      "example": "This is not just a timer; it also records laps.",
+      "counterexample": "The timer records laps."
+    },
+    {
+      "id": "H004",
+      "title": "Staged question",
+      "pattern": "\\b(?:the result|the best part|the takeaway)\\?",
+      "scope": "unprotected English prose",
+      "severity": "suggestion",
+      "strict": false,
+      "profiles": [
+        "standard",
+        "luke"
+      ],
+      "autofix": false,
+      "message": "The question may delay an answer the reader needs.",
+      "suggestion": "State the answer directly unless the question serves the genre.",
+      "example": "The result? The queue clears in ten seconds.",
+      "counterexample": "The queue clears in ten seconds."
+    },
+    {
+      "id": "H005",
+      "title": "Significance inflation",
+      "pattern": "\\b(?:game.changer|changes everything|at its core|revolutionize[sd]?)\\b",
+      "scope": "unprotected English prose",
+      "severity": "suggestion",
+      "strict": false,
+      "profiles": [
+        "standard",
+        "luke"
+      ],
+      "autofix": false,
+      "message": "Check whether the claim of importance adds evidence.",
+      "suggestion": "Keep the fact and avoid adding unsupported significance.",
+      "example": "At its core, the app records laps.",
+      "counterexample": "The app records laps."
+    },
+    {
+      "id": "H006",
+      "title": "Repeated uncertainty",
+      "pattern": "\\b(?:might potentially|could potentially|may possibly|perhaps maybe)\\b",
+      "scope": "unprotected English prose",
+      "severity": "suggestion",
+      "strict": false,
+      "profiles": [
+        "standard",
+        "luke"
+      ],
+      "autofix": false,
+      "message": "Two qualifiers may express the same uncertainty.",
+      "suggestion": "Keep the uncertainty: could potentially reduce becomes could reduce, never reduces.",
+      "example": "The patch could potentially reduce latency.",
+      "counterexample": "The patch could reduce latency."
+    },
+    {
+      "id": "H007",
+      "title": "Stock audience opening",
+      "pattern": "\\bwhether you(?:.re| are) (?:a beginner|an expert|a seasoned)\\b",
+      "scope": "unprotected English prose",
+      "severity": "suggestion",
+      "strict": false,
+      "profiles": [
+        "standard",
+        "luke"
+      ],
+      "autofix": false,
+      "message": "Check whether the audience opening helps this reader.",
+      "suggestion": "Keep meaningful audience scope; do not invent a target audience.",
+      "example": "Whether you are a beginner or an expert, you can export CSV.",
+      "counterexample": "You can export CSV."
+    },
+    {
+      "id": "H008",
+      "title": "Trailing benefit claim",
+      "pattern": ",\\s+(?:ensuring|enabling|empowering|making it easy to)\\b",
+      "scope": "unprotected English prose",
+      "severity": "suggestion",
+      "strict": false,
+      "profiles": [
+        "standard",
+        "luke"
+      ],
+      "autofix": false,
+      "message": "Check that the trailing benefit follows from the stated behavior.",
+      "suggestion": "Preserve supported causality and uncertainty; flag unsupported guarantees.",
+      "example": "The cache refreshes, ensuring fresh reads.",
+      "counterexample": "The cache refreshes every minute."
+    },
+    {
+      "id": "H009",
+      "title": "Possible passive voice",
+      "pattern": "\\b(?:is|are|was|were)\\s+\\w+ed\\s+by\\b",
+      "scope": "unprotected English prose",
+      "severity": "suggestion",
+      "strict": true,
+      "profiles": [
+        "standard",
+        "luke"
+      ],
+      "autofix": false,
+      "message": "An active subject may clarify who acts.",
+      "suggestion": "Use active voice only when clearer; retain passive voice when the actor is irrelevant.",
+      "example": "The file is checked by the server.",
+      "counterexample": "The server checks the file."
+    },
+    {
+      "id": "H010",
+      "title": "Formal transition",
+      "pattern": "\\b(?:furthermore|moreover|in conclusion)\\b",
+      "scope": "unprotected English prose",
+      "severity": "suggestion",
+      "strict": true,
+      "profiles": [
+        "standard",
+        "luke"
+      ],
+      "autofix": false,
+      "message": "Check whether this transition helps the connection.",
+      "suggestion": "Retain useful transitions and summaries; simplify only unnecessary ceremony.",
+      "example": "Furthermore, the tool exports CSV.",
+      "counterexample": "The tool also exports CSV."
+    },
+    {
+      "id": "H011",
+      "title": "Repeated em dashes",
+      "pattern": "—[^\\n]*—[^\\n]*—",
+      "scope": "unprotected English prose",
+      "severity": "suggestion",
+      "strict": true,
+      "profiles": [
+        "standard",
+        "luke"
+      ],
+      "autofix": false,
+      "message": "Several dashes may obscure the relationship between clauses.",
+      "suggestion": "Read the paragraph for flow. Preserve intentional punctuation and voice.",
+      "example": "A — B — C — D",
+      "counterexample": "The wait was brief."
+    },
+    {
+      "id": "H012",
+      "title": "Solo author voice",
+      "pattern": "\\b(?:we|our)\\b",
+      "scope": "unprotected English prose",
+      "severity": "suggestion",
+      "strict": false,
+      "profiles": [
+        "luke"
+      ],
+      "autofix": false,
+      "message": "Check whether this refers to the solo author or a real group.",
+      "suggestion": "Use I for the solo author only; preserve team, inclusive, and quoted language.",
+      "example": "We added CSV export.",
+      "counterexample": "I added CSV export."
+    },
+    {
+      "id": "H013",
+      "title": "Specific model terminology",
+      "pattern": "\\bAI(?:[ -](?:powered|enhanced|driven))?\\b",
+      "scope": "unprotected English prose",
+      "severity": "suggestion",
+      "strict": false,
+      "profiles": [
+        "luke"
+      ],
+      "autofix": false,
+      "message": "Use the model name or language model when accurate.",
+      "suggestion": "Apply the project terminology policy; keep names, quotations, and disclosures accurate.",
+      "example": "AI",
+      "counterexample": "The language model writes summaries."
+    }
+  ]
+}

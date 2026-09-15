@@ -1,12 +1,13 @@
 # Humanize
 
-Humanize restores natural flow to documentation and other user-facing prose.
+Humanize edits prose for clarity, flow, and the writer's voice. It preserves
+facts, uncertainty, attribution, code, and citations. Good prose can stay as it is.
 
 [![Installation guide](https://img.shields.io/badge/Install-Get_started-2563eb?style=flat-square)](#install) [![MIT code license](https://img.shields.io/badge/Code-MIT-181717?style=flat-square)](LICENSE) [![Actually Useful AI collection](https://img.shields.io/badge/Actually_Useful_AI-Collection-181717?style=flat-square)](https://github.com/actually-useful-ai)
 
-LLM-generated text has tells: em-dashes for dramatic effect, contrast pivots ("It's not just X, it's Y"), corporate jargon clusters ("leverage a robust ecosystem"), rhetorical pivots ("The result? ..."), and stiff constructions like "It is important to note that." This plugin detects 23 categories of these patterns and fixes them.
-
-Humanize edits for clarity, not to disguise authorship. These constructions are tells because they're weak writing: they pad, they hedge, they substitute cadence for content. A human editor would cut them for the same reason this plugin does. The goal is prose that's direct, specific, varied in rhythm, and allowed to have some personality.
+Use it to improve a README, clarify product copy, tighten release notes, or match
+a supplied writing sample. The agent performs the editorial pass. An optional
+local Python scanner points out contextual patterns without changing files.
 
 ## Install
 
@@ -54,60 +55,77 @@ the same installation is available in the IDE and CLI.
 
 ## Usage
 
+```text
+/humanize README.md
+/humanize docs/
+/humanize README.md --dry-run
+/humanize README.md --strict
 ```
-/humanize              # scan README.md, CHANGELOG.md, docs/*.md in cwd
-/humanize src/docs/    # scan a specific directory
-/humanize README.md    # scan a specific file
-/humanize --dry-run    # report without making changes
-/humanize --strict     # also auto-fix medium-confidence patterns
+
+An editing request authorizes changes to the named prose. A dry run reports
+suggestions. Strict mode adds scrutiny while keeping the same preservation rules.
+With no target, Humanize uses existing README.md, CONTRIBUTING.md, and Markdown
+under docs/ in the current project.
+
+For a voice match, provide a short sample and identify the intended reader.
+For an embedded editing task, Humanize returns only the requested final prose.
+
+## What improves
+
+- Organization around the reader's task.
+- Concrete subjects and actions, with useful transitions.
+- Less repetition and promotional filler.
+- Rhythm and register consistent with the source.
+- Clear explanations that retain uncertainty and technical meaning.
+
+For example, “The patch could potentially reduce latency” can become “The patch
+could reduce latency.” The possibility remains a possibility.
+
+## Local scanner
+
+Python 3.10+ is sufficient; no packages or services are required.
+
+```sh
+python3 skills/humanize/scripts/doc_humanizer.py scan README.md
+python3 skills/humanize/scripts/doc_humanizer.py scan docs/ --format json --check
+python3 skills/humanize/scripts/doc_humanizer.py scan README.md --profile luke
+python3 skills/humanize/scripts/doc_humanizer.py rules
 ```
 
-## What It Detects
+The [rule catalog](skills/humanize/references/rules.json) defines 13 contextual
+checks: eight general checks, three additional strict checks, and two Luke
+house-style checks. Findings are suggestions, with exact locations and reasons.
+The scanner supports UTF-8 Markdown and plain text. Unsupported formats and
+protected content are reported separately. It never writes target files.
 
-| Pattern | Confidence | Example |
-|---------|-----------|---------|
-| Em-dashes | 0.95 | "provides--and this is critical--updates" |
-| Corporate jargon | 0.90 | "leverage", "synergy", "ecosystem" |
-| Buzzword clusters | 0.90 | "optimized, scalable, future-proof" |
-| Stiff construction | 0.90 | "It is important to note that..." |
-| Redundancy | 0.95 | "advance planning", "past history" |
-| LLM attribution | 1.0 | "Claude generated this", "the assistant" |
-| Solo "we" to "I" | 0.90 | "We implemented" in solo context |
-| Passive voice | 0.85 | "The data is processed by the system" |
-| Hedge phrases | 0.80 | "might potentially", "could perhaps" |
-| Formal metadata | 0.85 | "This document provides an overview" |
-| Success metrics | 0.85 | "improves performance by up to 80%" |
-| Acronyms | 0.80 | Unexpanded on first use |
-| Transition phrases | 0.75 | "Furthermore", "Moreover" |
-| Excessive dates | 0.75 | Timestamps in narrative prose |
-| Over-structuring | 0.70 | Numbered lists for 2-3 items |
-| Contrast pivot | 0.90 | "It's not just X, it's Y" |
-| Trailing participles | 0.85 | ", ensuring reliability" |
-| Rhetorical pivots | 0.85 | "The result? A faster pipeline." |
-| Significance inflation | 0.85 | "At its core", "game-changer" |
-| Audience hedging | 0.85 | "Whether you're a beginner or..." |
-| Summary closers | 0.80 | "In conclusion", "Ultimately" |
-| Rule-of-three cadence | 0.75 | Triplets as every sentence's rhythm |
-| Monotone rhythm | 0.65 | Same sentence shape, wall to wall |
+The agent handles paragraph flow, voice, evidence, and contextual editing.
+Mechanical checks do not establish authorship, factual accuracy, or accessibility
+conformance. See the [scanner contract](skills/humanize/references/scanner.md)
+for configuration, format limits, and exit codes.
 
-## How It Works
+## Upgrading from 1.x
 
-1. **Checkpoint** -- commits any uncommitted changes before touching files
-2. **Scan** -- applies all 23 detection patterns with confidence scores
-3. **Transform** -- auto-fixes high-confidence (>0.9), suggests medium (0.7-0.9), flags low (<0.7)
-4. **Report** -- shows a summary with before/after diffs
+Version 2 removes automatic attribution/status deletion, synonym replacement,
+punctuation replacement, and numeric confidence thresholds. Legacy scanner
+`fix` and `diff` commands report suggestions and leave files unchanged. The
+`/humanize` agent workflow still completes requested prose edits.
 
-## Safety
+Update the installed plugin through its runtime and start a new session. Check
+the loaded version; an updated checkout does not update an existing plugin cache.
+Use one intended installation per runtime to avoid duplicate skill resolution.
 
-- Never modifies code blocks, URLs, or citations
-- Never changes meaning or removes attribution to real people
-- Skips CLAUDE.md files (system instructions, not prose)
-- Always creates a git checkpoint before making changes
-- Shows diff previews for all changes
+## Development
 
-## Terminology Ban
+```sh
+PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s tests -v
+python3 tests/evaluate_editorial.py
+```
 
-The plugin also flags prohibited umbrella branding. Use "LLM", "language model", or name the specific model instead.
+Tests cover package consistency, source preservation, diagnostic locations, and
+CLI behavior. The original editorial corpus contains development and held-out
+examples. Its automated checks validate explicit preservation literals; human
+review is still needed to establish writing quality. No readability improvement
+percentage is claimed.
 
 ## License
 
