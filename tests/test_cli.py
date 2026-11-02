@@ -32,6 +32,26 @@ class CatalogTests(unittest.TestCase):
         self.assertEqual([d.rule_id for d in h.scan_text('Furthermore, we exported CSV.', strict=True)], ['H010'])
         self.assertEqual([d.rule_id for d in M.DocumentHumanizer('luke').scan_text('We exported CSV.')], ['H012'])
 
+    def test_luke_profile_covers_house_style_rules(self):
+        luke = M.DocumentHumanizer('luke')
+        standard = M.DocumentHumanizer()
+        cases = {
+            'H014': 'It ships today \u2014 with tests.',
+            'H015': 'Pick a colour for the theme.',
+            'H016': 'GET STARTED',
+            'H017': '3 min read \u00b7 Updated today \u00b7 Guide',
+            'H018': 'A world-class keyboard.',
+            'H019': 'It is faster than ChatGPT.',
+        }
+        for rule_id, text in cases.items():
+            with self.subTest(rule=rule_id):
+                self.assertIn(rule_id, [d.rule_id for d in luke.scan_text(text)])
+                self.assertNotIn(rule_id, [d.rule_id for d in standard.scan_text(text, strict=True)])
+        protected = 'Run `a \u2014 b` or quote "faster than ChatGPT" as written.'
+        self.assertEqual(luke.scan_text(protected), [])
+        clean = 'I added a gray theme. Get started in two steps. Searches finish in 40 ms.'
+        self.assertEqual(luke.scan_text(clean), [])
+
     def test_allow_terms_and_disabled_rules(self):
         text = 'At its core, the result? A timer.'
         h = M.DocumentHumanizer(config={'allow_terms': ['At its core'], 'disabled_rules': ['H004']})
