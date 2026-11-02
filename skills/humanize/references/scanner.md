@@ -19,9 +19,11 @@ inline code, links and images, URLs, quotes, references, front matter, and
 embedded HTML. It preserves original positions. This is not a full CommonMark
 parser: ambiguous regions are skipped and may hide otherwise editable prose.
 
-The catalog has 13 rules. Eight general rules run by default. Three extra
-contextual rules run with `--strict`. The `luke` profile adds two house-style
-rules. General editorial work such as paragraph organization, source fidelity,
+The catalog has 19 rules. Eight general rules run by default. Three extra
+contextual rules run with `--strict`. The `luke` profile adds eight house-style
+rules: solo-author voice, model terminology, em dashes, British spelling,
+all-caps labels, middle-dot meta strings, superlatives, and comparisons with
+commercial models. General editorial work such as paragraph organization, source fidelity,
 voice, acronym explanation, and useful summaries remains an agent task.
 
 Instruction files, licenses, notices, changelogs, clinical/specification folders,

@@ -4,7 +4,7 @@ description: "Edit documentation and user-facing prose for clarity, flow, and th
 license: MIT
 compatibility: "Core editing works without tools. Optional local diagnostics require Python 3.10+; no network or third-party packages."
 metadata:
-  version: "2.0.0"
+  version: "2.1.0"
   author: "Luke Steuber"
 ---
 
@@ -96,6 +96,11 @@ Apply explicit user and project preferences before general style suggestions.
 For Luke's solo projects, use “I” for Luke's own work and specific model names
 or “language model” for model features. Preserve actual group attribution,
 proper names, and quotations. Never add generic model-marketing labels.
+In Luke's public copy, also use American spelling, avoid em dashes, all-caps
+labels, middle-dot meta strings, superlatives, and comparisons with commercial
+models, and never name his internal agents, skills, or tools. Keep swearing out
+of anything shipped. The `luke` scanner profile flags most of these; naming
+internal tools and swearing remain editorial checks.
 
 ## Optional diagnostics
 

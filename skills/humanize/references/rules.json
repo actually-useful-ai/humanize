@@ -219,6 +219,102 @@
       "suggestion": "Apply the project terminology policy; keep names, quotations, and disclosures accurate.",
       "example": "AI",
       "counterexample": "The language model writes summaries."
+    },
+    {
+      "id": "H014",
+      "title": "Em dash in house style",
+      "pattern": "—",
+      "scope": "unprotected English prose",
+      "severity": "suggestion",
+      "strict": false,
+      "profiles": [
+        "luke"
+      ],
+      "autofix": false,
+      "message": "House style avoids em dashes in public copy.",
+      "suggestion": "Use a period, comma, colon, or parentheses. Keep dashes in quotations and names.",
+      "example": "It ships today — with tests.",
+      "counterexample": "It ships today, with tests."
+    },
+    {
+      "id": "H015",
+      "title": "British spelling",
+      "pattern": "\\b(?:colour(?:s|ed|ing|ful)?|favour(?:s|ed|ite|ites|able)?|behaviour(?:s|al)?|honour(?:s|ed)?|neighbour(?:s|hood)?|labour|organis(?:e|ed|es|ing|ation|ations)|realis(?:e|ed|es|ing)|recognis(?:e|ed|es|ing)|analyse|analysed|analysing|centre(?:s|d)?|catalogue(?:s)?|programme(?:s)?|travelled|travelling|cancelled|cancelling|labelled|labelling|modelling|grey(?:s|ed)?)\\b",
+      "scope": "unprotected English prose",
+      "severity": "suggestion",
+      "strict": false,
+      "profiles": [
+        "luke"
+      ],
+      "autofix": false,
+      "message": "House style uses American spelling.",
+      "suggestion": "Use the American spelling. Keep quotations, proper names, and code identifiers.",
+      "example": "Pick a colour for the theme.",
+      "counterexample": "Pick a color for the theme."
+    },
+    {
+      "id": "H016",
+      "title": "All-caps label",
+      "pattern": "(?m)^(?:#{1,6}[ ]+)?(?-i:[A-Z][A-Z0-9]+(?:[ ]+[A-Z][A-Z0-9&]*)+)[ \\t]*$",
+      "scope": "unprotected English prose",
+      "severity": "suggestion",
+      "strict": false,
+      "profiles": [
+        "luke"
+      ],
+      "autofix": false,
+      "message": "House style avoids all-caps labels.",
+      "suggestion": "Use sentence case. Keep acronyms in capitals.",
+      "example": "GET STARTED",
+      "counterexample": "Get started"
+    },
+    {
+      "id": "H017",
+      "title": "Middle-dot meta string",
+      "pattern": "[^\\s\\x00][ ]·[ ][^\\n\\x00]*?[ ]·[ ][^\\s\\x00]",
+      "scope": "unprotected English prose",
+      "severity": "suggestion",
+      "strict": false,
+      "profiles": [
+        "luke"
+      ],
+      "autofix": false,
+      "message": "House style avoids middle-dot meta strings.",
+      "suggestion": "Keep the one detail the reader needs, or write a short sentence.",
+      "example": "3 min read · Updated today · Guide",
+      "counterexample": "Updated today."
+    },
+    {
+      "id": "H018",
+      "title": "Superlative claim",
+      "pattern": "\\b(?:best-in-class|world-class|unmatched|unparalleled|industry-leading|state-of-the-art|blazing(?:ly)?[ -]fast|lightning[ -]fast)\\b",
+      "scope": "unprotected English prose",
+      "severity": "suggestion",
+      "strict": false,
+      "profiles": [
+        "luke"
+      ],
+      "autofix": false,
+      "message": "House style replaces superlatives with facts.",
+      "suggestion": "State the measured behavior instead, such as a time, size, or supported case.",
+      "example": "A world-class keyboard.",
+      "counterexample": "Searches finish in 40 ms."
+    },
+    {
+      "id": "H019",
+      "title": "Commercial model comparison",
+      "pattern": "\\b(?:better|faster|smarter|cheaper|more accurate) than (?:ChatGPT|GPT-?\\d[\\w.]*|Gemini|Claude|Copilot|Siri|Alexa)\\b",
+      "scope": "unprotected English prose",
+      "severity": "suggestion",
+      "strict": false,
+      "profiles": [
+        "luke"
+      ],
+      "autofix": false,
+      "message": "House style avoids comparisons with commercial models.",
+      "suggestion": "Describe what this tool does and its measured limits on its own terms.",
+      "example": "It is faster than ChatGPT.",
+      "counterexample": "It runs offline on a laptop."
     }
   ]
 }

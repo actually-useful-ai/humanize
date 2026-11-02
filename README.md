@@ -92,8 +92,8 @@ python3 skills/humanize/scripts/doc_humanizer.py scan README.md --profile luke
 python3 skills/humanize/scripts/doc_humanizer.py rules
 ```
 
-The [rule catalog](skills/humanize/references/rules.json) defines 13 contextual
-checks: eight general checks, three additional strict checks, and two Luke
+The [rule catalog](skills/humanize/references/rules.json) defines 19 contextual
+checks: eight general checks, three additional strict checks, and eight Luke
 house-style checks. Findings are suggestions, with exact locations and reasons.
 The scanner supports UTF-8 Markdown and plain text. Unsupported formats and
 protected content are reported separately. It never writes target files.
