@@ -42,6 +42,10 @@ class CatalogTests(unittest.TestCase):
             'H017': '3 min read \u00b7 Updated today \u00b7 Guide',
             'H018': 'A world-class keyboard.',
             'H019': 'It is faster than ChatGPT.',
+            'H021': 'Apps by Lucas Steuber.',
+            'H022': 'Made with ChatGPT and a lot of coffee.',
+            'H023': 'Offline mode is not yet tested.',
+            'H024': 'I am open to new opportunities.',
         }
         for rule_id, text in cases.items():
             with self.subTest(rule=rule_id):
@@ -51,6 +55,25 @@ class CatalogTests(unittest.TestCase):
         self.assertEqual(luke.scan_text(protected), [])
         clean = 'I added a gray theme. Get started in two steps. Searches finish in 40 ms.'
         self.assertEqual(luke.scan_text(clean), [])
+
+    def test_luke_profile_keeps_credit_and_disclosure(self):
+        luke = M.DocumentHumanizer('luke')
+        kept = [
+            'Copyright 2026 Luke Steuber. Released under the MIT license.',
+            'Made by [Luke Steuber](https://lukesteuber.com).',
+            'Adapted from the original by Sam Lee (MIT).',
+            'Summaries are written by a language model running on your device.',
+            'Recognition works offline but misses chords faster than 200 bpm.',
+            'Run `git commit --trailer "Co-Authored-By: someone"` as written.',
+        ]
+        for text in kept:
+            with self.subTest(text=text):
+                self.assertEqual(luke.scan_text(text, strict=True), [])
+
+    def test_self_describing_opener_runs_in_standard_profile(self):
+        h = M.DocumentHumanizer()
+        self.assertEqual([d.rule_id for d in h.scan_text('This page lets you pick a theme.')], ['H020'])
+        self.assertEqual(h.scan_text('This page was updated in May.'), [])
 
     def test_allow_terms_and_disabled_rules(self):
         text = 'At its core, the result? A timer.'

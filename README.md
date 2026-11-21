@@ -77,6 +77,8 @@ For an embedded editing task, Humanize returns only the requested final prose.
 - Less repetition and promotional filler.
 - Rhythm and register consistent with the source.
 - Clear explanations that retain uncertainty and technical meaning.
+- Content matched to the genre: product pages, interface text, link previews,
+  and research notes each keep what their reader needs.
 
 For example, “The patch could potentially reduce latency” can become “The patch
 could reduce latency.” The possibility remains a possibility.
@@ -92,8 +94,8 @@ python3 skills/humanize/scripts/doc_humanizer.py scan README.md --profile luke
 python3 skills/humanize/scripts/doc_humanizer.py rules
 ```
 
-The [rule catalog](skills/humanize/references/rules.json) defines 19 contextual
-checks: eight general checks, three additional strict checks, and eight Luke
+The [rule catalog](skills/humanize/references/rules.json) defines 24 contextual
+checks: nine general checks, three additional strict checks, and twelve Luke
 house-style checks. Findings are suggestions, with exact locations and reasons.
 The scanner supports UTF-8 Markdown and plain text. Unsupported formats and
 protected content are reported separately. It never writes target files.

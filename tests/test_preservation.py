@@ -155,10 +155,10 @@ class MeaningPreservationTests(unittest.TestCase):
 class EditorialCorpusTests(unittest.TestCase):
     def test_corpus_has_consistent_literals_and_separate_holdout_cases(self):
         self.assertEqual(EVALUATOR.validate_corpus(CORPUS), [])
-        self.assertEqual(len(CORPUS["cases"]), 30)
+        self.assertEqual(len(CORPUS["cases"]), 34)
         for split in ("development", "holdout"):
             cases = [case for case in CORPUS["cases"] if case["split"] == split]
-            self.assertEqual(len(cases), 15)
+            self.assertEqual(len(cases), 17)
             self.assertEqual({case["action"] for case in cases}, {"edit", "leave"})
             self.assertGreaterEqual(len({case["genre"] for case in cases}), 5)
 
