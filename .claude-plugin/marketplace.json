@@ -1,5 +1,5 @@
 {
-  "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
+  "$schema": "https://json.schemastore.org/claude-code-marketplace.json",
   "name": "actually-useful-ai-humanize",
   "description": "Careful editing for clear, natural prose.",
   "owner": {
@@ -11,7 +11,7 @@
       "name": "humanize",
       "source": "./",
       "description": "Edit prose for clarity and voice while preserving meaning.",
-      "version": "2.1.0",
+      "version": "2.2.0",
       "category": "writing",
       "homepage": "https://github.com/actually-useful-ai/humanize"
     }

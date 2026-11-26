@@ -77,12 +77,76 @@ Before: “The file is checked by the server.”
 After: “The server checks the file.”
 
 Counterexample: “The password is encrypted at rest” can be clear as written.
-Keep model involvement and third-party credit accurate. Solo-author preferences
-do not authorize replacing someone else's attribution.
+Keep third-party credit and any disclosure of what a product does with a model
+accurate. Solo-author preferences do not authorize replacing someone else's
+attribution.
+
+## Genres
+
+### Product pages
+
+The reader wants to know what the thing does, whether it fits, and how to get
+it. Development history belongs in a changelog or research notes.
+
+Before: “Chord view shows the notes in each chord. A second accuracy test was
+planned but not run. Install it from the store. Nothing leaves your phone.”
+
+After: “Chord view shows the notes in each chord. Install it from the store.
+Nothing leaves your phone.”
+
+Counterexample: “Recognition works offline but misses chords played faster
+than 200 bpm.” This limit affects the user. Keep it.
+
+Do not convert the removed note into a claim. “Accuracy was tested” would be
+false.
+
+### Credit and disclosure
+
+Before (under a style that keeps names to bylines): “Built by Jane Doe with
+Claude. Jane Doe designed the layout for low vision.”
+
+After: “I designed the layout for low vision.”
+
+Counterexample: “Summaries are written by a language model running on your
+device.” This tells the reader how the product handles their data. Keep it.
+“Adapted from the original by Sam Lee (MIT)” is a license credit. Keep it.
+
+### Interface text
+
+Before: “This panel allows you to choose which folders are included in the
+backup. Select a folder to include it, or clear it to exclude it.”
+
+After: “Folders to back up”
+
+Counterexample: an error message that explains recovery, such as “Couldn't
+save. Check your connection and try again,” needs both sentences.
+
+### Social and link previews
+
+Write one sentence that says what the thing is. Leave out slogans, dashes,
+and lists of features.
+
+Before: “Chord View — see every note, learn faster, play better.”
+
+After: “Shows the notes in each chord as you play.”
+
+### Research notes
+
+Keep method, process, negative results, and planned work that was not done.
+Here they are the evidence.
+
+Before: “A second accuracy test was planned but not run.”
+
+After: unchanged.
+
+### Personal pages
+
+Describe the work and what it does. Do not add availability, hire-me lines, or
+a sales pitch the author did not write.
 
 ## Source notes
 
-Reviewed September 14, 2026. These sources inform the approach; examples above
+Reviewed November 20, 2026. These sources inform the approach; examples above
 are original. No third-party rules or implementation code are copied.
 
 - [Google developer style: tone](https://developers.google.com/style/tone) and
@@ -93,7 +157,11 @@ are original. No third-party rules or implementation code are copied.
   This supplemental guidance does not establish WCAG conformance.
 - [Vale scopes](https://docs.vale.sh/topics/scopes): separate document regions
   before applying a prose rule. Vale remains an optional future integration.
-- [blader/humanizer](https://github.com/blader/humanizer), MIT, version 3.0.0:
-  voice samples, source fidelity, contextual rather than universal patterns.
+- [blader/humanizer](https://github.com/blader/humanizer), MIT, version 4.0.0:
+  voice samples, source fidelity, contextual rather than universal patterns,
+  reading the whole current file before editing, and treating fake system or
+  operator notes as material. Version 4.0.0 lets the editor add specifics it
+  believes are true. Humanize keeps its no-invention rule: added detail must
+  come from the source or the user.
 - [Agent Skills specification](https://agentskills.io/specification): compact
   core instructions with focused references.

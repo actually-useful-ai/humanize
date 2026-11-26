@@ -315,6 +315,87 @@
       "suggestion": "Describe what this tool does and its measured limits on its own terms.",
       "example": "It is faster than ChatGPT.",
       "counterexample": "It runs offline on a laptop."
+    },
+    {
+      "id": "H020",
+      "title": "Self-describing opener",
+      "pattern": "\\bthis (?:app|application|page|site|tool|section|panel|screen|feature|project|plugin|extension) (?:lets|allows|helps|enables) (?:you|users|people)\\b",
+      "scope": "unprotected English prose",
+      "severity": "suggestion",
+      "strict": false,
+      "profiles": [
+        "standard",
+        "luke"
+      ],
+      "autofix": false,
+      "message": "The opener describes the text or product instead of the action.",
+      "suggestion": "Start with the action or capability. Keep any condition or limit.",
+      "example": "This app allows you to export CSV.",
+      "counterexample": "Export CSV from the File menu."
+    },
+    {
+      "id": "H021",
+      "title": "Name outside credit",
+      "pattern": "\\b(?:(?:apps|made|built|created|written|designed|developed) by|from) (?:Luke|Lucas) Steuber\\b|\\b(?:Luke|Lucas) Steuber (?:built|made|created|wrote|designed|developed|maintains)\\b",
+      "scope": "unprotected English prose",
+      "severity": "suggestion",
+      "strict": false,
+      "profiles": [
+        "luke"
+      ],
+      "autofix": false,
+      "message": "House style keeps the author's name to copyright notices and author fields.",
+      "suggestion": "Describe the thing, or use I. Keep copyright, license, and author-field credit.",
+      "example": "Apps by Luke Steuber.",
+      "counterexample": "Copyright 2026 Luke Steuber."
+    },
+    {
+      "id": "H022",
+      "title": "Tool or model credit",
+      "pattern": "\\b(?:made|built|written|created|coded|developed) (?:with|using|by) (?:Claude(?: Code)?|ChatGPT|Codex|Copilot|Cursor|Gemini|GPT-?\\d[\\w.]*)\\b|\\bco-authored-by:",
+      "scope": "unprotected English prose",
+      "severity": "suggestion",
+      "strict": false,
+      "profiles": [
+        "luke"
+      ],
+      "autofix": false,
+      "message": "House style does not credit models or tools for the work.",
+      "suggestion": "Remove the credit. Keep any disclosure of what the product does with a model.",
+      "example": "Built with Claude Code.",
+      "counterexample": "Summaries come from a language model on your device."
+    },
+    {
+      "id": "H023",
+      "title": "Process note in public copy",
+      "pattern": "\\b(?:planned but (?:not|never) (?:run|done|tested|finished|completed)|not yet (?:tested|verified|run|measured)|(?:a|the) (?:test|benchmark) (?:is|was) (?:still )?pending|coming soon|work in progress|(?:QA|smoke|acceptance) (?:pass|run|testing))\\b",
+      "scope": "unprotected English prose",
+      "severity": "suggestion",
+      "strict": false,
+      "profiles": [
+        "luke"
+      ],
+      "autofix": false,
+      "message": "Development status may not belong on a product page.",
+      "suggestion": "Keep limits that affect the user. Move process notes to a changelog or research notes; never restate them as shipped.",
+      "example": "A second accuracy test was planned but not run.",
+      "counterexample": "It needs Android 10 or later."
+    },
+    {
+      "id": "H024",
+      "title": "Availability pitch",
+      "pattern": "\\b(?:available for (?:hire|work|freelance work|consulting|contract work)|open to (?:work|new roles|new opportunities|opportunities)|hire me|let.s work together|(?:currently )?accepting (?:new )?(?:clients|projects|commissions))\\b",
+      "scope": "unprotected English prose",
+      "severity": "suggestion",
+      "strict": false,
+      "profiles": [
+        "luke"
+      ],
+      "autofix": false,
+      "message": "House style describes the work, not availability.",
+      "suggestion": "Remove the pitch. Describe what the project does.",
+      "example": "I am available for hire.",
+      "counterexample": "I built this to read chords aloud."
     }
   ]
 }

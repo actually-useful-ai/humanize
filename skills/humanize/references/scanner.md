@@ -19,11 +19,13 @@ inline code, links and images, URLs, quotes, references, front matter, and
 embedded HTML. It preserves original positions. This is not a full CommonMark
 parser: ambiguous regions are skipped and may hide otherwise editable prose.
 
-The catalog has 19 rules. Eight general rules run by default. Three extra
-contextual rules run with `--strict`. The `luke` profile adds eight house-style
+The catalog has 24 rules. Nine general rules run by default. Three extra
+contextual rules run with `--strict`. The `luke` profile adds twelve house-style
 rules: solo-author voice, model terminology, em dashes, British spelling,
-all-caps labels, middle-dot meta strings, superlatives, and comparisons with
-commercial models. General editorial work such as paragraph organization, source fidelity,
+all-caps labels, middle-dot meta strings, superlatives, comparisons with
+commercial models, the author's name outside credit lines, tool or model
+credits, process notes in public copy, and availability pitches. Masked
+regions are skipped, so a byline inside link text is not flagged. General editorial work such as paragraph organization, source fidelity,
 voice, acronym explanation, and useful summaries remains an agent task.
 
 Instruction files, licenses, notices, changelogs, clinical/specification folders,
@@ -64,10 +66,17 @@ offsets. Results are sorted by file and source position.
 - **0:** at least one file scanned, no operational errors; findings are advisory.
 - **1:** `--check` was supplied and findings exist.
 - **2:** invalid arguments/config, an operational error, or no supported files
-  scanned. Skips are always reported and are never labelled clean.
+  scanned. Skips are always reported and are never labeled clean.
 
 A mixed directory may contain supported and skipped files and still exit 0.
 Callers that require full coverage must inspect the per-file status.
+
+## Changes in 2.2
+
+Five rules were added. H020 (self-describing opener) runs in both profiles, so
+`standard` scans can report new findings. H021 through H024 run only in the
+`luke` profile. Integrations that gate with `--check` may need `disabled_rules`
+or `allow_terms` for intentional uses. Schema versions are unchanged.
 
 ## Changes from 1.x
 
