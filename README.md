@@ -133,9 +133,10 @@ percentage is claimed.
 
 [MIT](LICENSE).
 
-## Around here
+## Related
 
-[Luke Steuber](https://github.com/lukeslp) · [Data Poems](https://github.com/data-poems) · [Ambient Time](https://github.com/ambient-time) · [Actually Useful AI](https://github.com/actually-useful-ai) · [One Impossible Thing](https://github.com/one-impossible-thing)
-
-Made by [Luke Steuber](https://lukesteuber.com). Questions or collaboration:
-[luke@lukesteuber.com](mailto:luke@lukesteuber.com).
+- [Craft](https://github.com/actually-useful-ai/craft)
+- [Team](https://github.com/actually-useful-ai/team)
+- [Intentional UX](https://github.com/actually-useful-ai/intentional-ux)
+- [Accessibility Devkit](https://github.com/actually-useful-ai/accessibility-devkit)
+- [Platforms](https://github.com/actually-useful-ai/platforms)
